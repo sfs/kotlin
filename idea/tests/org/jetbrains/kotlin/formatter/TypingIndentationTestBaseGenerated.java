@@ -407,6 +407,12 @@ public class TypingIndentationTestBaseGenerated extends AbstractTypingIndentatio
             runTest("idea/testData/indentationOnNewline/IsExpressionAfterIs.after.inv.kt");
         }
 
+        @TestMetadata("LambdaInCallWithAllightMultilineParameters.after.inv.kt")
+        public void testLambdaInCallWithAllightMultilineParameters() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/indentationOnNewline/LambdaInCallWithAllightMultilineParameters.after.inv.kt");
+            doNewlineTestWithInvert(fileName);
+        }
+
         @TestMetadata("SettingAlignMultilineParametersInCalls.after.inv.kt")
         public void testSettingAlignMultilineParametersInCalls() throws Exception {
             runTest("idea/testData/indentationOnNewline/SettingAlignMultilineParametersInCalls.after.inv.kt");
