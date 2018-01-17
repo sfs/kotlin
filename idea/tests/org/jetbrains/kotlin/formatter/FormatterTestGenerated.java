@@ -731,6 +731,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
             runTest("idea/testData/formatter/SpacesInQualifiedExpressions.after.kt");
         }
 
+        @TestMetadata("StatementLabel.after.kt")
+        public void testStatementLabel() throws Exception {
+            runTest("idea/testData/formatter/StatementLabel.after.kt");
+        }
+
         @TestMetadata("SuperListIndent.after.kt")
         public void testSuperListIndent() throws Exception {
             runTest("idea/testData/formatter/SuperListIndent.after.kt");
