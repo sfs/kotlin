@@ -40,12 +40,12 @@ public class KotlinCommenter implements CodeDocumentationAwareCommenter {
 
     @Override
     public String getCommentedBlockCommentPrefix() {
-        return null;
+        return getBlockCommentPrefix();
     }
 
     @Override
     public String getCommentedBlockCommentSuffix() {
-        return null;
+        return getBlockCommentSuffix();
     }
 
     @Override
