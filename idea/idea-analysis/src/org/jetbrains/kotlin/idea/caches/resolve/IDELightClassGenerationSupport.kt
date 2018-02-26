@@ -58,8 +58,10 @@ import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.resolve.lazy.NoDescriptorForDeclarationException
 import org.jetbrains.kotlin.resolve.source.getPsi
 import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.utils.ProjectService
 import java.util.concurrent.ConcurrentMap
 
+@ProjectService
 class IDELightClassGenerationSupport(private val project: Project) : LightClassGenerationSupport() {
     override fun createUltraLightClass(element: KtClassOrObject): KtUltraLightClass? {
         if (element.shouldNotBeVisibleAsLightClass() ||

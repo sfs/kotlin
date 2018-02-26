@@ -26,6 +26,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.platform.IdePlatform;
 import org.jetbrains.kotlin.platform.IdePlatformKindUtil;
 import org.jetbrains.kotlin.resolve.TargetPlatform;
+import org.jetbrains.kotlin.utils.Cached;
 
 public class ProjectStructureUtil {
     private static final Key<CachedValue<TargetPlatform>> PLATFORM_FOR_MODULE = Key.create("PLATFORM_FOR_MODULE");
@@ -33,6 +34,7 @@ public class ProjectStructureUtil {
     private ProjectStructureUtil() {
     }
 
+    @Cached(dependencies = {"ProjectRootModificationTracker"})
     @NotNull
     /* package */ static TargetPlatform getCachedPlatformForModule(@NotNull final Module module) {
         CachedValue<TargetPlatform> result = module.getUserData(PLATFORM_FOR_MODULE);

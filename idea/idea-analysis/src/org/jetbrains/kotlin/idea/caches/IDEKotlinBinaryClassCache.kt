@@ -27,7 +27,10 @@ import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinaryClass
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.utils.Cached
+import org.jetbrains.kotlin.utils.StaticService
 
+@StaticService
 object IDEKotlinBinaryClassCache {
     class KotlinBinaryClassHeaderData(
         val classId: ClassId,
@@ -103,10 +106,12 @@ object IDEKotlinBinaryClassCache {
             classId, kind, metadataVersion, multifilePartNames, packageName
         )
 
+    @Cached
     private val KOTLIN_IS_COMPILED_FILE_ATTRIBUTE: String = "kotlin-is-binary-compiled".apply {
         ServiceManager.getService(FileAttributeService::class.java)?.register(this, 1)
     }
 
+    @Cached
     private val KOTLIN_BINARY_DATA_KEY = Key.create<SoftReference<KotlinBinaryData>>(KOTLIN_IS_COMPILED_FILE_ATTRIBUTE)
 
     private fun getKotlinBinaryFromCache(file: VirtualFile): KotlinBinaryData? {

@@ -57,6 +57,8 @@ import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.TargetPlatform
 import org.jetbrains.kotlin.resolve.diagnostics.KotlinSuppressCache
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
+import org.jetbrains.kotlin.utils.Cached
+import org.jetbrains.kotlin.utils.ProjectService
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.addToStdlib.sumByLong
 
@@ -72,6 +74,7 @@ data class PlatformAnalysisSettings(
     val isReleaseCoroutines: Boolean
 )
 
+@ProjectService
 class KotlinCacheServiceImpl(val project: Project) : KotlinCacheService {
     override fun getResolutionFacade(elements: List<KtElement>): ResolutionFacade {
         return getFacadeToAnalyzeFiles(elements.map {
@@ -83,6 +86,7 @@ class KotlinCacheServiceImpl(val project: Project) : KotlinCacheService {
 
     override fun getSuppressionCache(): KotlinSuppressCache = kotlinSuppressCache.value
 
+    @Cached(["permanent?"])
     private val globalFacadesPerPlatformAndSdk: SLRUCache<PlatformAnalysisSettings, GlobalFacade> =
         object : SLRUCache<PlatformAnalysisSettings, GlobalFacade>(2 * 3 * 2, 2 * 3 * 2) {
             override fun createValue(settings: PlatformAnalysisSettings): GlobalFacade {
@@ -320,6 +324,7 @@ class KotlinCacheServiceImpl(val project: Project) : KotlinCacheService {
         }
     }
 
+    @Cached(["LibraryModificationTracker", "MODIFICATION_COUNT"])
     private val kotlinSuppressCache: CachedValue<KotlinSuppressCache> = CachedValuesManager.getManager(project).createCachedValue(
         {
             CachedValueProvider.Result<KotlinSuppressCache>(
@@ -369,6 +374,7 @@ class KotlinCacheServiceImpl(val project: Project) : KotlinCacheService {
         false
     )
 
+    @Cached(["LibraryModificationTracker", "ProjectRootModificationTracker"])
     private val specialFilesCacheProvider = CachedValueProvider {
         // NOTE: computations inside createFacadeForFilesWithSpecialModuleInfo depend on project root structure
         // so we additionally drop the whole slru cache on change
@@ -393,6 +399,7 @@ class KotlinCacheServiceImpl(val project: Project) : KotlinCacheService {
         }
     }
 
+    @Cached(["LibraryModificationTracker", "ProjectRootModificationTracker", "ScriptDependenciesModificationTracker"])
     private val scriptsCacheProvider = CachedValueProvider {
         CachedValueProvider.Result(
             object : SLRUCache<Set<KtFile>, ProjectResolutionFacade>(10, 5) {

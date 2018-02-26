@@ -49,6 +49,7 @@ import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.UserDataProperty
 import org.jetbrains.kotlin.resolve.TargetPlatform
+import org.jetbrains.kotlin.utils.Cached
 import org.jetbrains.kotlin.utils.Jsr305State
 import java.io.File
 
@@ -168,6 +169,7 @@ val Module.languageVersionSettings: LanguageVersionSettings
         return cachedValue.value
     }
 
+@Cached(["ProjectRootModificationTracker"])
 private fun Module.createCachedValueForLanguageVersionSettings(): CachedValue<LanguageVersionSettings> {
     return CachedValuesManager.getManager(project).createCachedValue({
                                                                          CachedValueProvider.Result(

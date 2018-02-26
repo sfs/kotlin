@@ -44,6 +44,7 @@ import org.jetbrains.kotlin.resolve.TargetEnvironment
 import org.jetbrains.kotlin.resolve.TargetPlatform
 import org.jetbrains.kotlin.storage.StorageManager
 import org.jetbrains.kotlin.storage.getValue
+import org.jetbrains.kotlin.utils.Cached
 import java.util.*
 
 class ResolverForModule(
@@ -168,6 +169,7 @@ class ResolverForProjectImpl<M : ModuleInfo>(
 
     private fun isCorrectModuleInfo(moduleInfo: M) = moduleInfo in allModules
 
+    @Cached(["projectContext.storageManager"])
     override fun resolverForModuleDescriptor(descriptor: ModuleDescriptor): ResolverForModule {
         return projectContext.storageManager.compute {
             val module = moduleInfoByDescriptor[descriptor]

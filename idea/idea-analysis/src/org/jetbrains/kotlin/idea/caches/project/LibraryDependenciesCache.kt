@@ -22,6 +22,8 @@ import org.jetbrains.kotlin.idea.core.util.CachedValue
 import org.jetbrains.kotlin.idea.core.util.getValue
 import org.jetbrains.kotlin.idea.framework.getLibraryPlatform
 import org.jetbrains.kotlin.resolve.TargetPlatform
+import org.jetbrains.kotlin.utils.Cached
+import org.jetbrains.kotlin.utils.ProjectService
 import org.jetbrains.kotlin.utils.addIfNotNull
 import java.util.*
 
@@ -35,7 +37,9 @@ interface LibraryDependenciesCache {
     fun getLibrariesAndSdksUsedWith(library: Library): LibrariesAndSdks
 }
 
+@ProjectService
 class LibraryDependenciesCacheImpl(private val project: Project) : LibraryDependenciesCache {
+    @Cached(["ProjectRootManager"])
     val cache by CachedValue(project) {
         CachedValueProvider.Result(
             ContainerUtil.createConcurrentWeakMap<Library, LibrariesAndSdks>(),
@@ -95,6 +99,7 @@ class LibraryDependenciesCacheImpl(private val project: Project) : LibraryDepend
         return from == to || to is CommonPlatform
     }
 
+    @Cached(["ProjectRootModificationTracker"])
     private fun getLibraryUsageIndex(): LibraryUsageIndex {
         return CachedValuesManager.getManager(project).getCachedValue(project) {
             CachedValueProvider.Result(LibraryUsageIndex(), ProjectRootModificationTracker.getInstance(project))
