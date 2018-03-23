@@ -32,7 +32,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.text.CharArrayUtil
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.idea.KotlinFileType
-import org.jetbrains.kotlin.idea.caches.resolve.analyzeWithAllCompilerChecks
+import org.jetbrains.kotlin.idea.caches.resolve.analyze
 import org.jetbrains.kotlin.idea.codeInsight.CodeInsightUtils
 import org.jetbrains.kotlin.idea.refactoring.getLineEndOffset
 import org.jetbrains.kotlin.idea.refactoring.getLineStartOffset
@@ -48,7 +48,8 @@ class KotlinFrameExtraVariablesProvider : FrameExtraVariablesProvider {
     }
 
     override fun collectVariables(
-            sourcePosition: SourcePosition, evalContext: EvaluationContext, alreadyCollected: MutableSet<String>): Set<TextWithImports> {
+        sourcePosition: SourcePosition, evalContext: EvaluationContext, alreadyCollected: MutableSet<String>
+    ): Set<TextWithImports> {
         return runReadAction { findAdditionalExpressions(sourcePosition) }
     }
 }
@@ -97,7 +98,8 @@ private fun findAdditionalExpressions(position: SourcePosition): Set<TextWithImp
 }
 
 private fun getContainingElement(element: PsiElement): KtElement? {
-    val contElement = PsiTreeUtil.getParentOfType(element, KtDeclaration::class.java) ?: PsiTreeUtil.getParentOfType(element, KtElement::class.java)
+    val contElement =
+        PsiTreeUtil.getParentOfType(element, KtDeclaration::class.java) ?: PsiTreeUtil.getParentOfType(element, KtElement::class.java)
     if (contElement is KtProperty && contElement.isLocal) {
         val parent = contElement.parent
         return getContainingElement(parent)
@@ -127,8 +129,8 @@ private fun shouldSkipLine(file: PsiFile, doc: Document, line: Int): Boolean {
 }
 
 private class VariablesCollector(
-        private val myLineRange: TextRange,
-        private val myExpressions: MutableSet<TextWithImports>
+    private val myLineRange: TextRange,
+    private val myExpressions: MutableSet<TextWithImports>
 ) : KtTreeVisitorVoid() {
 
     override fun visitKtElement(element: KtElement) {
@@ -154,12 +156,12 @@ private class VariablesCollector(
         // NB: analyze() cannot be called here, because DELEGATED_PROPERTY_RESOLVED_CALL will be always null
         // Looks like a bug
         @Suppress("DEPRECATION")
-        val context = expression.analyzeWithAllCompilerChecks().bindingContext
+        val context = expression.analyze()
         val descriptor = context[BindingContext.REFERENCE_TARGET, expression]
         if (descriptor is PropertyDescriptor) {
             val getter = descriptor.getter
             return (getter == null || context[BindingContext.DELEGATED_PROPERTY_RESOLVED_CALL, getter] == null) &&
-                   descriptor.compileTimeInitializer == null
+                    descriptor.compileTimeInitializer == null
         }
         return false
     }

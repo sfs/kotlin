@@ -376,7 +376,7 @@ public class BodyResolver {
                     superClass.getKind() != ClassKind.INTERFACE &&
                     !descriptor.isExpect() && !isEffectivelyExternal(descriptor) &&
                     !ErrorUtils.isError(superClass)
-                ) {
+                        ) {
                     trace.report(SUPERTYPE_NOT_INITIALIZED.on(specifier));
                 }
             }
@@ -728,7 +728,8 @@ public class BodyResolver {
         return new LexicalScopeImpl(originalScope, unsubstitutedPrimaryConstructor, false, null,
                                     LexicalScopeKind.DEFAULT_VALUE, LocalRedeclarationChecker.DO_NOTHING.INSTANCE,
                                     handler -> {
-                                        for (ValueParameterDescriptor valueParameter : unsubstitutedPrimaryConstructor.getValueParameters()) {
+                                        for (ValueParameterDescriptor valueParameter : unsubstitutedPrimaryConstructor
+                                                .getValueParameters()) {
                                             handler.addVariableDescriptor(valueParameter);
                                         }
                                         return Unit.INSTANCE;
@@ -948,9 +949,9 @@ public class BodyResolver {
             innerScope = new LexicalScopeImpl(innerScope, functionDescriptor, true, null,
                                               LexicalScopeKind.PROPERTY_ACCESSOR_BODY,
                                               LocalRedeclarationChecker.DO_NOTHING.INSTANCE, handler -> {
-                                                  handler.addVariableDescriptor(fieldDescriptor);
-                                                  return Unit.INSTANCE;
-                                              });
+                handler.addVariableDescriptor(fieldDescriptor);
+                return Unit.INSTANCE;
+            });
             // Check parameter name shadowing
             for (KtParameter parameter : function.getValueParameters()) {
                 if (SyntheticFieldDescriptor.NAME.equals(parameter.getNameAsName())) {
