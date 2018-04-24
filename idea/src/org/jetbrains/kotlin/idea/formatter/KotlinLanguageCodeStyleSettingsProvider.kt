@@ -389,6 +389,9 @@ class KotlinLanguageCodeStyleSettingsProvider : LanguageCodeStyleSettingsProvide
     override fun getDefaultCommonSettings(): CommonCodeStyleSettings {
         return KotlinCommonCodeStyleSettings().apply {
             initIndentOptions()
+//            KotlinStyleGuideCodeStyle.applyToCommonSettings(this)
+//
+//            throw IllegalStateException("Not executed 1")
         }
     }
 }

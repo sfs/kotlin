@@ -50,7 +50,8 @@ interface KotlinSingleNotificationManager<in T: Notification> {
         for (oldNotification in notifications) {
             if (oldNotification == notification) {
                 isNotificationExists = true
-            } else {
+            }
+            else {
                 oldNotification?.expire()
             }
         }
@@ -97,7 +98,8 @@ fun checkHideNonConfiguredNotifications(project: Project) {
                 ConfigureKotlinNotificationManager.expireOldNotifications(project)
                 checkInProgress.set(false)
             }
-        } else {
+        }
+        else {
             checkInProgress.set(false)
         }
     }
