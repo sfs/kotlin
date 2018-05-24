@@ -9,8 +9,10 @@ import com.intellij.codeInsight.daemon.HighlightDisplayKey
 import com.intellij.codeInspection.*
 import com.intellij.ide.actions.QualifiedNameProvider
 import com.intellij.lang.java.JavaLanguage
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.extensions.Extensions
 import com.intellij.openapi.project.DumbService
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiReference
@@ -21,18 +23,23 @@ import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.idea.highlighter.createSuppressWarningActions
 import org.jetbrains.kotlin.idea.inspections.api.IncompatibleAPIInspection.Companion.DEFAULT_REASON
 import org.jetbrains.kotlin.idea.inspections.toSeverity
+import org.jetbrains.kotlin.idea.quickfix.replaceWith.DeprecatedSymbolUsageFix
+import org.jetbrains.kotlin.idea.quickfix.replaceWith.ReplaceWith
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtSimpleNameExpression
 
 class IncompatibleAPIInspection : LocalInspectionTool(), CustomSuppressableInspectionTool {
     class Problem(
         @Attribute var reference: String? = "",
-        @Attribute var reason: String? = ""
+        @Attribute var reason: String? = "",
+        @Attribute var replaceWith: String? = null
     )
 
     // Stored in inspection setting
     var problems: List<Problem> = arrayListOf()
 
-    fun addProblem(reference: String, reason: String?) {
-        problems += Problem(reference, reason)
+    fun addProblem(reference: String, reason: String?, replaceWith: String?) {
+        problems += Problem(reference, reason, replaceWith)
         problemsCache.update(problems)
     }
 
@@ -131,11 +138,9 @@ internal fun registerProblemForReference(
     problem: IncompatibleAPIInspection.Problem
 ) {
     if (reference == null) return
-    holder.registerProblem(
-        reference,
-        problem.reason ?: DEFAULT_REASON,
-        ProblemHighlightType.GENERIC_ERROR_OR_WARNING
-    )
+    val element = reference.element ?: return
+
+    registerProblemForElement(element, holder, problem)
 }
 
 internal fun registerProblemForElement(
@@ -144,10 +149,35 @@ internal fun registerProblemForElement(
     problem: IncompatibleAPIInspection.Problem
 ) {
     if (element == null) return
+
+    val replaceWithPattern = problem.replaceWith
+    val deprecationFix =
+        if (element is KtSimpleNameExpression && replaceWithPattern != null) {
+            object : DeprecatedSymbolUsageFix(element, ReplaceWith(replaceWithPattern, emptyList())) {
+                override fun isAvailable(project: Project, editor: Editor?, file: KtFile): Boolean {
+                    val strategy = buildUsageReplacementStrategy(element, replaceWith, recheckAnnotation = false, reformat = false)
+                    return strategy?.createReplacer(element) != null
+                }
+            }
+        } else {
+            null
+        }
+
+    val fixes: Array<LocalQuickFix> = if (deprecationFix != null) arrayOf(deprecationFix) else emptyArray()
+
+    val reason = problem.reason ?: DEFAULT_REASON
+    val description =
+        if (replaceWithPattern != null) {
+            "$reason Use $replaceWithPattern."
+        } else {
+            reason
+        }
+
     holder.registerProblem(
         element,
-        problem.reason ?: DEFAULT_REASON,
-        ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+        description,
+        ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
+        *fixes
     )
 }
 

@@ -124,7 +124,7 @@ abstract class DeprecatedSymbolUsageFixBase(
             return Data(nameExpression, replacement, descriptor)
         }
 
-        private fun buildUsageReplacementStrategy(
+        fun buildUsageReplacementStrategy(
             element: KtSimpleNameExpression,
             replaceWith: ReplaceWith,
             recheckAnnotation: Boolean,
