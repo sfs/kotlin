@@ -19,6 +19,7 @@ dependencies {
     compileOnly(intellijPluginDep("IntelliLang"))
     compileOnly(intellijPluginDep("copyright"))
     compileOnly(intellijPluginDep("properties"))
+    // compileOnly(intellijPluginDep("ByteCodeViewer"))
     compileOnly(intellijPluginDep("java-i18n"))
     compileOnly(intellijPluginDep("stream-debugger"))
 }
