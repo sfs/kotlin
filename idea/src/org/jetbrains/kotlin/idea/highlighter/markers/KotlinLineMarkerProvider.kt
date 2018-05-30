@@ -24,13 +24,12 @@ import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.*
 import com.intellij.psi.search.searches.ClassInheritorsSearch
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.CommonProcessors
 import org.jetbrains.kotlin.asJava.LightClassUtil
-import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.MemberDescriptor
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.idea.KotlinIcons
-import org.jetbrains.kotlin.idea.caches.lightClasses.KtFakeLightClass
 import org.jetbrains.kotlin.idea.caches.lightClasses.KtFakeLightMethod
 import org.jetbrains.kotlin.idea.caches.project.implementedDescriptors
 import org.jetbrains.kotlin.idea.caches.project.implementingDescriptors
@@ -41,6 +40,7 @@ import org.jetbrains.kotlin.idea.core.toDescriptor
 import org.jetbrains.kotlin.idea.editor.fixers.startLine
 import org.jetbrains.kotlin.idea.presentation.DeclarationByModuleRenderer
 import org.jetbrains.kotlin.idea.search.declarationsSearch.toPossiblyFakeLightMethods
+import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinDefinitionsSearcher
 import org.jetbrains.kotlin.idea.util.*
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
@@ -284,21 +284,22 @@ private fun collectSuperDeclarationMarkers(declaration: KtDeclaration, result: M
     result.add(lineMarkerInfo)
 }
 
-private fun collectInheritedClassMarker(element: KtClass, result: MutableCollection<LineMarkerInfo<*>>) {
-    if (!element.isInheritable()) {
+private fun collectInheritedClassMarker(ktClass: KtClass, result: MutableCollection<LineMarkerInfo<*>>) {
+    if (!ktClass.isInheritable()) {
         return
     }
 
-    val lightClass = element.toLightClass() ?: KtFakeLightClass(element)
+    val findFirstInheritorProcessor = CommonProcessors.FindFirstProcessor<PsiElement>()
+    KotlinDefinitionsSearcher.findImplementations(ktClass, findFirstInheritorProcessor)
 
-    if (ClassInheritorsSearch.search(lightClass, false).findFirst() == null) return
+    if (!findFirstInheritorProcessor.isFound) return
 
-    val anchor = element.nameIdentifier ?: element
+    val anchor = ktClass.nameIdentifier ?: ktClass
 
     val lineMarkerInfo = LineMarkerInfo(
         anchor,
         anchor.textRange,
-        if (element.isInterface()) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
+        if (ktClass.isInterface()) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
         Pass.LINE_MARKERS,
         SUBCLASSED_CLASS.tooltip,
         SUBCLASSED_CLASS.navigationHandler,
@@ -306,9 +307,10 @@ private fun collectInheritedClassMarker(element: KtClass, result: MutableCollect
     )
     NavigateAction.setNavigateAction(
         lineMarkerInfo,
-        if (element.isInterface()) "Go to implementations" else "Go to subclasses",
+        if (ktClass.isInterface()) "Go to implementations" else "Go to subclasses",
         IdeActions.ACTION_GOTO_IMPLEMENTATION
     )
+
     result.add(lineMarkerInfo)
 }
 

@@ -16,6 +16,8 @@
 
 package org.jetbrains.kotlin.idea.search.ideaExtensions
 
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
@@ -44,53 +46,63 @@ import java.util.*
 
 class KotlinDefinitionsSearcher : QueryExecutor<PsiElement, DefinitionsScopedSearch.SearchParameters> {
     override fun execute(queryParameters: DefinitionsScopedSearch.SearchParameters, consumer: ExecutorProcessor<PsiElement>): Boolean {
-        val consumer = skipDelegatedMethodsConsumer(consumer)
-        val element = queryParameters.element
-        val scope = queryParameters.scope
-
-        return when (element) {
-            is KtClass -> {
-                val isExpectEnum = runReadAction { element.isEnum() && element.isExpectDeclaration() }
-                if (isExpectEnum) {
-                    processActualDeclarations(element, consumer)
-                } else {
-                    processClassImplementations(element, consumer) && processActualDeclarations(element, consumer)
-                }
-            }
-
-            is KtObjectDeclaration -> {
-                processActualDeclarations(element, consumer)
-            }
-
-            is KtLightClass -> {
-                val useScope = runReadAction { element.useScope }
-                if (useScope is LocalSearchScope)
-                    processLightClassLocalImplementations(element, useScope, consumer)
-                else
-                    true
-            }
-
-            is KtNamedFunction, is KtSecondaryConstructor -> {
-                processFunctionImplementations(element as KtFunction, scope, consumer) && processActualDeclarations(element, consumer)
-            }
-
-            is KtProperty -> {
-                processPropertyImplementations(element, scope, consumer) && processActualDeclarations(element, consumer)
-            }
-
-            is KtParameter -> {
-                if (isFieldParameter(element)) {
-                    processPropertyImplementations(element, scope, consumer) && processActualDeclarations(element, consumer)
-                } else {
-                    true
-                }
-            }
-
-            else -> true
-        }
+        return findImplementations(queryParameters.element, queryParameters.scope, consumer)
     }
 
     companion object {
+        fun findImplementations(element: PsiElement, consumer: Processor<PsiElement>) {
+            val scope = runReadAction {
+                if (!element.isValid) {
+                    throw ProcessCanceledException()
+                }
+                val file = element.containingFile
+                (if (file != null) file else element).useScope
+            }
+
+            findImplementations(element, scope, consumer)
+        }
+
+        fun findImplementations(element: PsiElement, scope: SearchScope, consumer: ExecutorProcessor<PsiElement>): Boolean {
+            @Suppress("NAME_SHADOWING")
+            val consumer = skipDelegatedMethodsConsumer(consumer)
+
+            return when (element) {
+                is KtClass -> {
+                    val isExpectEnum = runReadAction { element.isEnum() && element.isExpectDeclaration() }
+                if (isExpectEnum) {
+                    processActualDeclarations(element, consumer)
+                } else {processClassImplementations(element, consumer) && processActualDeclarations(element, consumer)
+                }}
+
+                is KtObjectDeclaration -> {
+                processActualDeclarations(element, consumer)
+            }is KtLightClass -> {
+                    val useScope = runReadAction { element.useScope }
+                    if (useScope is LocalSearchScope)
+                        processLightClassLocalImplementations(element, useScope, consumer)
+                    else
+                        true
+                }
+
+                is KtNamedFunction, is KtSecondaryConstructor -> {
+                    processFunctionImplementations(element as KtFunction, scope, consumer) && processActualDeclarations(element, consumer)
+                }
+
+                is KtProperty -> {
+                    processPropertyImplementations(element, scope, consumer) && processActualDeclarations(element, consumer)
+                }
+
+                is KtParameter -> {
+                    if (isFieldParameter(element)) {
+                        processPropertyImplementations(element, scope, consumer) && processActualDeclarations(element, consumer)
+                    } else {
+                        true
+                    }
+                }
+
+                else -> true
+            }
+        }
 
         private fun skipDelegatedMethodsConsumer(baseConsumer: ExecutorProcessor<PsiElement>): Processor<PsiElement> {
             return Processor { element ->
