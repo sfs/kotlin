@@ -822,6 +822,7 @@ private val INDENT_RULES = arrayOf(
             KtNodeTypes.WHEN_CONDITION_EXPRESSION,
             KtNodeTypes.WHEN_CONDITION_IN_RANGE,
             KtNodeTypes.WHEN_CONDITION_IS_PATTERN,
+            EOL_COMMENT, DOC_COMMENT, BLOCK_COMMENT,
             ELSE_KEYWORD,
             ARROW
         )

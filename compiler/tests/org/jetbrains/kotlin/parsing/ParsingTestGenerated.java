@@ -716,6 +716,11 @@ public class ParsingTestGenerated extends AbstractParsingTest {
             runTest("compiler/testData/psi/When.kt");
         }
 
+        @TestMetadata("WhenWithComments.kt")
+        public void testWhenWithComments() throws Exception {
+            runTest("compiler/testData/psi/WhenWithComments.kt");
+        }
+
         @TestMetadata("WhenWithSubjectVariable.kt")
         public void testWhenWithSubjectVariable() throws Exception {
             runTest("compiler/testData/psi/WhenWithSubjectVariable.kt");
