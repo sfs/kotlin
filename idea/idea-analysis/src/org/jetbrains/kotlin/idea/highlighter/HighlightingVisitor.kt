@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.psi.KtVisitorVoid
 abstract class HighlightingVisitor protected constructor(
     private val holder: AnnotationHolder
 ) : KtVisitorVoid() {
-
     protected fun createInfoAnnotation(element: PsiElement, message: String? = null): Annotation =
         createInfoAnnotation(element.textRange, message)
 

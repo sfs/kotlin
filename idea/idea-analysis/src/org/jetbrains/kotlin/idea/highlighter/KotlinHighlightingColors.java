@@ -35,7 +35,8 @@ public class KotlinHighlightingColors {
     public static final TextAttributesKey PARENTHESIS = createTextAttributesKey("KOTLIN_PARENTHESIS", DefaultLanguageHighlighterColors.PARENTHESES);
     public static final TextAttributesKey BRACES = createTextAttributesKey("KOTLIN_BRACES", DefaultLanguageHighlighterColors.BRACES);
     public static final TextAttributesKey BRACKETS = createTextAttributesKey("KOTLIN_BRACKETS", DefaultLanguageHighlighterColors.BRACKETS);
-    public static final TextAttributesKey FUNCTION_LITERAL_BRACES_AND_ARROW = createTextAttributesKey("KOTLIN_FUNCTION_LITERAL_BRACES_AND_ARROW");
+    public static final TextAttributesKey FUNCTION_LITERAL_BRACES_AND_ARROW = createTextAttributesKey("KOTLIN_FUNCTION_LITERAL_BRACES_AND_ARROW", BRACES);
+    public static final TextAttributesKey FUNCTION_LITERAL_WITH_RECEIVER_BRACES_AND_ARROW = createTextAttributesKey("FUNCTION_LITERAL_WITH_RECEIVER_BRACES_AND_ARROW", FUNCTION_LITERAL_BRACES_AND_ARROW);
     public static final TextAttributesKey COMMA = createTextAttributesKey("KOTLIN_COMMA", DefaultLanguageHighlighterColors.COMMA);
     public static final TextAttributesKey SEMICOLON = createTextAttributesKey("KOTLIN_SEMICOLON", DefaultLanguageHighlighterColors.SEMICOLON);
     public static final TextAttributesKey COLON = createTextAttributesKey("KOTLIN_COLON");

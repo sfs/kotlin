@@ -129,6 +129,7 @@ var <PACKAGE_PROPERTY><MUTABLE_VARIABLE>globalCounter</MUTABLE_VARIABLE></PACKAG
             OptionsBundle.message("options.java.attribute.descriptor.parentheses") to KotlinHighlightingColors.PARENTHESIS,
             OptionsBundle.message("options.java.attribute.descriptor.braces") to KotlinHighlightingColors.BRACES,
             KotlinBundle.message("options.kotlin.attribute.descriptor.closure.braces") to KotlinHighlightingColors.FUNCTION_LITERAL_BRACES_AND_ARROW,
+            KotlinBundle.message("options.kotlin.attribute.descriptor.closure.with.receiver.braces") to KotlinHighlightingColors.FUNCTION_LITERAL_WITH_RECEIVER_BRACES_AND_ARROW,
             KotlinBundle.message("options.kotlin.attribute.descriptor.arrow") to KotlinHighlightingColors.ARROW,
             OptionsBundle.message("options.java.attribute.descriptor.brackets") to KotlinHighlightingColors.BRACKETS,
             OptionsBundle.message("options.java.attribute.descriptor.comma") to KotlinHighlightingColors.COMMA,

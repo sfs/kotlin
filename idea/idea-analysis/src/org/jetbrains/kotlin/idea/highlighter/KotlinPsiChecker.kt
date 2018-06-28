@@ -101,7 +101,8 @@ open class KotlinPsiChecker : Annotator, HighlightRangeExtension {
                 PropertiesHighlightingVisitor(holder, bindingContext),
                 FunctionsHighlightingVisitor(holder, bindingContext),
                 VariablesHighlightingVisitor(holder, bindingContext),
-                TypeKindHighlightingVisitor(holder, bindingContext)
+                TypeKindHighlightingVisitor(holder, bindingContext),
+                LambdaHighlightingVisitor(holder, bindingContext)
         )
 
         fun createQuickFixes(diagnostic: Diagnostic): Collection<IntentionAction> =
