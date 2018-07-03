@@ -50,6 +50,18 @@ public class KotlinCommonCodeStyleSettings extends CommonCodeStyleSettings {
     private KotlinCommonCodeStyleSettings(boolean isTempForDeserialize) {
         super(KotlinLanguage.INSTANCE);
         this.isTempForDeserialize = isTempForDeserialize;
+
+        CALL_PARAMETERS_WRAP = CommonCodeStyleSettings.WRAP_AS_NEEDED + CommonCodeStyleSettings.WRAP_ON_EVERY_ITEM;
+        CALL_PARAMETERS_LPAREN_ON_NEXT_LINE = true;
+        CALL_PARAMETERS_RPAREN_ON_NEXT_LINE = true;
+
+        METHOD_PARAMETERS_WRAP = CommonCodeStyleSettings.WRAP_AS_NEEDED + CommonCodeStyleSettings.WRAP_ON_EVERY_ITEM;
+        METHOD_PARAMETERS_LPAREN_ON_NEXT_LINE = true;
+        METHOD_PARAMETERS_RPAREN_ON_NEXT_LINE = true;
+
+        EXTENDS_LIST_WRAP = CommonCodeStyleSettings.WRAP_AS_NEEDED;
+        METHOD_CALL_CHAIN_WRAP = CommonCodeStyleSettings.WRAP_AS_NEEDED;
+        ASSIGNMENT_WRAP = CommonCodeStyleSettings.WRAP_AS_NEEDED;
     }
 
     private static KotlinCommonCodeStyleSettings createForTempDeserialize() {
