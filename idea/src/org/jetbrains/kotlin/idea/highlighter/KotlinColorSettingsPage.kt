@@ -39,6 +39,7 @@ class KotlinColorSettingsPage : ColorSettingsPage, RainbowColorSettingsPage {
         return """/* Block comment */
 <KEYWORD>package</KEYWORD> hello
 <KEYWORD>import</KEYWORD> kotlin.collections.* // line comment
+<KEYWORD>import</KEYWORD> kotlin.coroutines.experimental.buildSequence
 
 /**
  * Doc comment here for `SomeClass`
@@ -94,6 +95,12 @@ var <PACKAGE_PROPERTY><MUTABLE_VARIABLE>globalCounter</MUTABLE_VARIABLE></PACKAG
 
 <KEYWORD>typealias</KEYWORD> <TYPE_ALIAS>Predicate</TYPE_ALIAS><<TYPE_PARAMETER>T</TYPE_PARAMETER>> = (<TYPE_PARAMETER>T</TYPE_PARAMETER>) -> <CLASS>Boolean</CLASS>
 <KEYWORD>fun</KEYWORD> <FUNCTION_DECLARATION>baz</FUNCTION_DECLARATION>(<PARAMETER>p</PARAMETER>: <TYPE_ALIAS>Predicate</TYPE_ALIAS><<CLASS>Int</CLASS>>) = <PARAMETER><VARIABLE_AS_FUNCTION_CALL>p</VARIABLE_AS_FUNCTION_CALL></PARAMETER>(<NUMBER>42</NUMBER>)
+
+<KEYWORD>fun</KEYWORD>  <FUNCTION_DECLARATION>suspendUsage</FUNCTION_DECLARATION>() {
+    buildSequence {
+        <SUSPEND_FUNCTION_CALL>yield</SUSPEND_FUNCTION_CALL>(1)
+    }
+}
 """
     }
 
@@ -168,6 +175,7 @@ var <PACKAGE_PROPERTY><MUTABLE_VARIABLE>globalCounter</MUTABLE_VARIABLE></PACKAG
             KotlinBundle.message("options.kotlin.attribute.descriptor.fun") to KotlinHighlightingColors.FUNCTION_DECLARATION,
             KotlinBundle.message("options.kotlin.attribute.descriptor.fun.call") to KotlinHighlightingColors.FUNCTION_CALL,
             KotlinBundle.message("options.kotlin.attribute.descriptor.dynamic.fun.call") to KotlinHighlightingColors.DYNAMIC_FUNCTION_CALL,
+            KotlinBundle.message("options.kotlin.attribute.descriptor.suspend.fun.call") to KotlinHighlightingColors.SUSPEND_FUNCTION_CALL,
             KotlinBundle.message("options.kotlin.attribute.descriptor.package.fun.call") to KotlinHighlightingColors.PACKAGE_FUNCTION_CALL,
             KotlinBundle.message("options.kotlin.attribute.descriptor.extension.fun.call") to KotlinHighlightingColors.EXTENSION_FUNCTION_CALL,
             KotlinBundle.message("options.kotlin.attribute.descriptor.constructor.call") to KotlinHighlightingColors.CONSTRUCTOR_CALL,

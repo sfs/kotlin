@@ -94,6 +94,7 @@ internal class FunctionsHighlightingVisitor(holder: AnnotationHolder, bindingCon
             calleeDescriptor !is FunctionDescriptor -> null
             calleeDescriptor.extensionReceiverParameter != null -> EXTENSION_FUNCTION_CALL
             DescriptorUtils.isTopLevelDeclaration(calleeDescriptor) -> PACKAGE_FUNCTION_CALL
+            calleeDescriptor.isSuspend -> SUSPEND_FUNCTION_CALL
             else -> FUNCTION_CALL
         }
         if (key != null) {
