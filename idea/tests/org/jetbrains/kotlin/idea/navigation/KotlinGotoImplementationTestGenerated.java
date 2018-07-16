@@ -99,6 +99,11 @@ public class KotlinGotoImplementationTestGenerated extends AbstractKotlinGotoImp
         runTest("idea/testData/navigation/implementations/GenericFakeOverride.kt");
     }
 
+    @TestMetadata("IgnoreAbstractsFunction.kt")
+    public void testIgnoreAbstractsFunction() throws Exception {
+        runTest("idea/testData/navigation/implementations/IgnoreAbstractsFunction.kt");
+    }
+
     @TestMetadata("ImplementGenericWithPrimitives.kt")
     public void testImplementGenericWithPrimitives() throws Exception {
         runTest("idea/testData/navigation/implementations/ImplementGenericWithPrimitives.kt");
