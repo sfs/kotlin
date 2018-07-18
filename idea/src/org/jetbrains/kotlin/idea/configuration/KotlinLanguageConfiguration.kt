@@ -82,7 +82,7 @@ class KotlinUpdatesSettingsConfigurable : SearchableConfigurable, Configurable.N
         }
 
         form.installButton.isVisible = false
-        form.installButton.addActionListener {
+        form.installButton.addActionListener { _ ->
             update?.let {
                 form.hideInstallButton()
 
@@ -97,6 +97,23 @@ class KotlinUpdatesSettingsConfigurable : SearchableConfigurable, Configurable.N
                         if (versionForInstallation == it.pluginDescriptor.version) {
                             form.installStatusLabel.text = installingStatus
                         }
+
+//                        if (myManager != null) {
+//                            myManager.apply()
+//                        }
+//                        val dialog = DialogWrapper.findInstance(KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner)
+//                        if (dialog != null && dialog.isModal) {
+//                            dialog.close(DialogWrapper.OK_EXIT_CODE)
+//                        }
+//                        IdeFocusManager.getGlobalInstance().doWhenFocusSettlesDown({
+//                                                                                       val settings =
+//                                                                                           DialogWrapper.findInstance(IdeFocusManager.findInstance().focusOwner)
+//                                                                                       if (settings is SettingsDialog) {
+//                                                                                           settings.doOKAction()
+//                                                                                       }
+//                                                                                       ApplicationManager.getApplication().restart()
+//                                                                                   }, ModalityState.current())
+//                        break
                     },
                     cancelCallback = {
                         if (versionForInstallation == it.pluginDescriptor.version) {
@@ -139,7 +156,7 @@ class KotlinUpdatesSettingsConfigurable : SearchableConfigurable, Configurable.N
         saveChannelSettings()
         form.updateCheckProgressIcon.resume()
         form.resetUpdateStatus()
-        KotlinPluginUpdater.getInstance().runUpdateCheck{ pluginUpdateStatus ->
+        KotlinPluginUpdater.getInstance().runUpdateCheck { pluginUpdateStatus ->
             // Need this to show something is happening when check is very fast
             Thread.sleep(30)
             form.updateCheckProgressIcon.suspend()
