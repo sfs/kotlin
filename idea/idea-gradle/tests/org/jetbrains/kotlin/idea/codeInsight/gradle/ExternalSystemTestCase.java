@@ -164,9 +164,7 @@ public abstract class ExternalSystemTestCase extends UsefulTestCase {
     }
 
     private void setUpInWriteAction() throws Exception {
-        File projectDir = new File(myTestDir, "project");
-        FileUtil.ensureExists(projectDir);
-        myProjectRoot = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(projectDir);
+         myProjectRoot = myProject.getBaseDir();
     }
 
     @After

@@ -9,8 +9,13 @@ import com.intellij.openapi.extensions.Extensions
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.roots.DependencyScope
 import com.intellij.openapi.roots.ExternalLibraryDescriptor
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.codeStyle.CodeStyleSettingsManager
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.idea.configuration.*
+import org.jetbrains.kotlin.idea.formatter.KotlinObsoleteCodeStyle
+import org.jetbrains.kotlin.idea.formatter.KotlinStyleGuideCodeStyle
+import org.jetbrains.kotlin.idea.formatter.kotlinCodeStyleDefaults
 import org.jetbrains.kotlin.idea.util.application.executeWriteCommand
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.test.testFramework.runInEdtAndWait
@@ -67,6 +72,30 @@ class GradleConfiguratorTest : GradleImportingTestCase() {
                 checkFiles(files)
             }
         }
+    }
+
+    @Test
+    fun testImportObsoleteCodeStyle() {
+        Assert.assertNull(CodeStyleSettingsManager.getSettings(myProject).kotlinCodeStyleDefaults())
+
+        importProjectFromTestData()
+
+        Assert.assertEquals(
+            KotlinObsoleteCodeStyle.CODE_STYLE_ID,
+            CodeStyleSettingsManager.getSettings(myProject).kotlinCodeStyleDefaults()
+        )
+    }
+
+    @Test
+    fun testImportOfficialCodeStyle() {
+        Assert.assertNull(CodeStyleSettingsManager.getSettings(myProject).kotlinCodeStyleDefaults())
+
+        importProjectFromTestData()
+
+        Assert.assertEquals(
+            KotlinStyleGuideCodeStyle.CODE_STYLE_ID,
+            CodeStyleSettingsManager.getSettings(myProject).kotlinCodeStyleDefaults()
+        )
     }
 
     @Test
