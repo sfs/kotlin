@@ -50,6 +50,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.jetbrains.kotlin.test.testFramework.EdtTestUtil.runInEdtAndWait;
 
@@ -145,7 +146,21 @@ public abstract class ExternalSystemTestCase extends UsefulTestCase {
 
     protected void setUpFixtures() throws Exception {
         myTestFixture = IdeaTestFixtureFactory.getFixtureFactory().createFixtureBuilder(getName()).getFixture();
-        myTestFixture.setUp();
+
+        AtomicReference<Exception> edtExceptionRef = new AtomicReference<>();
+        runInEdtAndWait(() -> {
+            try {
+                myTestFixture.setUp();
+            }
+            catch (Exception e) {
+                edtExceptionRef.set(e);
+            }
+        });
+
+        Exception exception = edtExceptionRef.get();
+        if (exception != null) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private void setUpInWriteAction() throws Exception {
