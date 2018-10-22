@@ -21,9 +21,10 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.artifacts.repositories.IvyArtifactRepository
-import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.JavaExec
-import org.gradle.kotlin.dsl.*
+import org.gradle.kotlin.dsl.DependencyHandlerScope
+import org.gradle.kotlin.dsl.extra
+import org.gradle.kotlin.dsl.task
 import java.io.File
 
 private fun Project.intellijRepoDir() = File("${project.rootDir.absoluteFile}/buildSrc/prepare-deps/intellij-sdk/build/repo")
@@ -143,7 +144,7 @@ fun Project.runIdeTask(name: String, ideaPluginDir: File, ideaSandboxDir: File, 
         workingDir = File(intellijRootDir(), "bin")
 
         jvmArgs(
-            "-Xmx1250m",
+            "-Xmx2550m",
             "-XX:ReservedCodeCacheSize=240m",
             "-XX:+HeapDumpOnOutOfMemoryError",
             "-ea",
