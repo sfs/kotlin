@@ -236,6 +236,11 @@ public class TypingIndentationTestBaseGenerated extends AbstractTypingIndentatio
             runTest("idea/testData/indentationOnNewline/KT20783.after.kt");
         }
 
+        @TestMetadata("LambdaInCallWithAllightMultilineParameters.after.kt")
+        public void testLambdaInCallWithAllightMultilineParameters() throws Exception {
+            runTest("idea/testData/indentationOnNewline/LambdaInCallWithAllightMultilineParameters.after.kt");
+        }
+
         @TestMetadata("ModifierListInUnfinishedDeclaration.after.kt")
         public void testModifierListInUnfinishedDeclaration() throws Exception {
             runTest("idea/testData/indentationOnNewline/ModifierListInUnfinishedDeclaration.after.kt");
@@ -409,8 +414,7 @@ public class TypingIndentationTestBaseGenerated extends AbstractTypingIndentatio
 
         @TestMetadata("LambdaInCallWithAllightMultilineParameters.after.inv.kt")
         public void testLambdaInCallWithAllightMultilineParameters() throws Exception {
-            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/indentationOnNewline/LambdaInCallWithAllightMultilineParameters.after.inv.kt");
-            doNewlineTestWithInvert(fileName);
+            runTest("idea/testData/indentationOnNewline/LambdaInCallWithAllightMultilineParameters.after.inv.kt");
         }
 
         @TestMetadata("SettingAlignMultilineParametersInCalls.after.inv.kt")
