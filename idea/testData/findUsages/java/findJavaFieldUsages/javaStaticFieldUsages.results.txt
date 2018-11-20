@@ -1,0 +1,2 @@
+Value read 3 println(A.foo)
+Value write 2 A.foo = "bar"

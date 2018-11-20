@@ -1651,6 +1651,11 @@ public class FindUsagesTestGenerated extends AbstractFindUsagesTest {
             public void testJKFieldUsages() throws Exception {
                 runTest("idea/testData/findUsages/java/findJavaFieldUsages/JKFieldUsages.0.java");
             }
+
+            @TestMetadata("javaStaticFieldUsages.0.java")
+            public void testJavaStaticFieldUsages() throws Exception {
+                runTest("idea/testData/findUsages/java/findJavaFieldUsages/javaStaticFieldUsages.0.java");
+            }
         }
 
         @TestMetadata("idea/testData/findUsages/java/findJavaMethodUsages")
