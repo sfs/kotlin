@@ -93,7 +93,7 @@ public class AntTaskJsTest extends AbstractAntTaskTest {
         doJsAntTest();
     }
 
-    public void testSimpleWithStdlib() throws Exception {
+    public void testSimpleWithoutStdlib() throws Exception {
         doJsAntTest();
     }
 
@@ -105,19 +105,19 @@ public class AntTaskJsTest extends AbstractAntTaskTest {
         doJsAntTest("jslib-example.js");
     }
 
-    public void testSimpleWithStdlibAndJsFileAsAnotherLib() throws Exception {
+    public void testSimpleWithJsFileAsAnotherLib() throws Exception {
         doJsAntTest("jslib-example.js");
     }
 
-    public void testSimpleWithStdlibAndJsFileAsAnotherLibModuleKind() throws Exception {
+    public void testSimpleWithJsFileAsAnotherLibModuleKind() throws Exception {
         doJsAntTest(true, "amd.js", "jslib-example.js");
     }
 
-    public void testSimpleWithStdlibAndTwoJsFilesAsLibraries() throws Exception {
+    public void testSimpleWithTwoJsFilesAsLibraries() throws Exception {
         doJsAntTest("jslib-example1.js", "jslib-example2.js");
     }
 
-    public void testSimpleWithStdlibAndJsFilesWithTwoModulesAsLibrary() throws Exception {
+    public void testSimpleWithJsFilesWithTwoModulesAsLibrary() throws Exception {
         doJsAntTest("jslib-example.js");
     }
 
