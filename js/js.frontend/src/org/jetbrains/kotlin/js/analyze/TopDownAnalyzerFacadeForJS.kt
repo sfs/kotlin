@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.js.analyze
 
 import com.intellij.openapi.project.Project
-import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.builtins.functions.functionInterfacePackageFragmentProvider
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -51,17 +51,16 @@ object TopDownAnalyzerFacadeForJS {
         require(!thisIsBuiltInsModule || customBuiltInsModule == null) {
             "Can't simultaneously use custom built-ins module and set current module as built-ins"
         }
-        val projectContext = ProjectContext(project)
 
         val builtIns = when {
-            thisIsBuiltInsModule -> object : KotlinBuiltIns(projectContext.storageManager) {}
+            thisIsBuiltInsModule -> DefaultBuiltIns(loadBuiltInsFromCurrentClassLoader = false)
             customBuiltInsModule != null -> customBuiltInsModule.builtIns
             else -> JsPlatform.builtIns
         }
 
         val moduleName = configuration[CommonConfigurationKeys.MODULE_NAME]!!
         val context = ContextForNewModule(
-            projectContext,
+            ProjectContext(project),
             Name.special("<$moduleName>"),
             builtIns,
             multiTargetPlatform = null
