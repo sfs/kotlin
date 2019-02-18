@@ -122,6 +122,12 @@ open class KotlinUMethod(
 
     override fun getOriginalElement(): PsiElement? = super<UAnnotationMethod>.getOriginalElement()
 
+    override val returnTypeReference: UTypeReferenceExpression? by lz {
+        (sourcePsi as? KtCallableDeclaration)?.typeReference?.let {
+            LazyKotlinUTypeReferenceExpression(it, this) { javaPsi.returnType ?: UastErrorType }
+        }
+    }
+
     override fun equals(other: Any?) = other is KotlinUMethod && psi == other.psi
 
     companion object {

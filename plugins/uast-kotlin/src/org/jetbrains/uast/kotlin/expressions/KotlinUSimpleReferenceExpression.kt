@@ -39,6 +39,7 @@ open class KotlinUSimpleReferenceExpression(
         override val psi: KtSimpleNameExpression,
         givenParent: UElement?
 ) : KotlinAbstractUExpression(givenParent), USimpleNameReferenceExpression, KotlinUElementWithType, KotlinEvaluatableUElement {
+
     private val resolvedDeclaration by lz { psi.resolveCallToDeclaration(this) }
 
     override val identifier get() = psi.getReferencedName()
@@ -57,6 +58,8 @@ open class KotlinUSimpleReferenceExpression(
 
         visitor.afterVisitSimpleNameReferenceExpression(this)
     }
+
+    override val referenceNameElement: UElement? by lz { psi.getIdentifier()?.toUElement() }
 
     private fun visitAccessorCalls(visitor: UastVisitor) {
         // Visit Kotlin get-set synthetic Java property calls as function calls
