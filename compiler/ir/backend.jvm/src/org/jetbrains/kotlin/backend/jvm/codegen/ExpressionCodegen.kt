@@ -688,6 +688,9 @@ class ExpressionCodegen(
 
     override fun visitWhen(expression: IrWhen, data: BlockInfo): StackValue {
         expression.markLineNumber(startOffset = true)
+        val switchGen = SwitchGenerator(expression, data, this)
+        if (switchGen.match())
+            return switchGen.gen()
         return genIfWithBranches(expression.branches[0], data, expression.type.toKotlinType(), expression.branches.drop(1))
     }
 
@@ -1204,7 +1207,7 @@ class ExpressionCodegen(
 
     }
 
-    private fun coerceNotToUnit(fromType: Type, fromKotlinType: KotlinType?, toKotlinType: KotlinType): StackValue {
+    internal fun coerceNotToUnit(fromType: Type, fromKotlinType: KotlinType?, toKotlinType: KotlinType): StackValue {
         val asmToType = toKotlinType.asmType
         if (asmToType != AsmTypes.UNIT_TYPE || TypeUtils.isNullableType(toKotlinType)) {
             coerce(fromType, fromKotlinType, asmToType, toKotlinType, mv)
