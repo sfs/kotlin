@@ -245,6 +245,8 @@ internal object IDELightClassContexts {
 
     private fun anyInternalMembersWithThisName(name: String, project: Project): Boolean {
         var result = false
+
+        // INRE: find usages (2)
         StubIndex.getInstance().processElements(
             KotlinOverridableInternalMembersShortNameIndex.Instance.key, name, project,
             EverythingGlobalScope(project), KtCallableDeclaration::class.java

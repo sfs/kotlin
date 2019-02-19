@@ -292,6 +292,7 @@ fun isInCrossinlineArgument(ktElement: KtElement): Boolean {
         }.filterIsInstance<KtFunction>()
     }
 
+    // INRE:
     val bindingContext = ktElement.analyze(BodyResolveMode.PARTIAL)
     return argumentFunctions.any {
         val argumentDescriptor = InlineUtil.getInlineArgumentDescriptor(it, bindingContext)

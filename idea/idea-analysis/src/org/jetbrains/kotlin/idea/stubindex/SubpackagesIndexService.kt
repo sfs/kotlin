@@ -32,6 +32,7 @@ class SubpackagesIndexService(private val project: Project) {
 
     private val cachedValue = CachedValuesManager.getManager(project).createCachedValue(
             {
+                // INRE: LightClasses (Coverage(2)), KotlinFindUsagesHandler(2), KotlinQuickDocumentationProvider (5), KotlinCallHierarchyNodeDescriptor (3), KotlinConsoleRunner(1)
                 CachedValueProvider.Result(
                         SubpackagesIndex(KotlinExactPackagesIndex.getInstance().getAllKeys(project)),
                         PsiModificationTracker.OUT_OF_CODE_BLOCK_MODIFICATION_COUNT)

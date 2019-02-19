@@ -63,6 +63,7 @@ class IDEKotlinAsJavaSupport(private val project: Project): KotlinAsJavaSupport(
 
     override fun findClassOrObjectDeclarations(fqName: FqName, searchScope: GlobalSearchScope): Collection<KtClassOrObject> {
         return runReadAction {
+            // INRE: UAST+LightClasses(1)
             KotlinFullClassNameIndex.getInstance().get(
                 fqName.asString(),
                 project,

@@ -74,6 +74,8 @@ class StubBasedPackageMemberDeclarationProvider(
     override fun getDeclarationNames() = declarationNames_
 
     override fun getClassOrObjectDeclarations(name: Name): Collection<KtClassOrObjectInfo<*>> = runReadAction {
+        // TODO: check for read action disappear
+        // INRE: NoStrataPositionManagerHelperKt (2), KotlinQuickDocumentationProvider(1)
         KotlinFullClassNameIndex.getInstance().get(childName(name), project, searchScope)
             .map { KtClassInfoUtil.createClassLikeInfo(it) }
     }

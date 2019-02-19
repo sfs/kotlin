@@ -71,6 +71,7 @@ abstract class KotlinFindUsagesHandler<T : PsiElement>(psiElement: T,
 
     protected fun searchReferences(element: PsiElement, processor: Processor<UsageInfo>, options: FindUsagesOptions): Boolean {
         val searcher = createSearcher(element, processor, options)
+        // INRE
         if (!runReadAction { searcher.buildTaskList() }) return false
         return searcher.executeTasks()
     }

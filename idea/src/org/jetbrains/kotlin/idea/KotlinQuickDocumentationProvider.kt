@@ -152,6 +152,7 @@ class KotlinQuickDocumentationProvider : AbstractDocumentationProvider() {
     }
 
     override fun getQuickNavigateInfo(element: PsiElement?, originalElement: PsiElement?): String? {
+        // INRE (3)
         return if (element == null) null else getText(element, originalElement, true)
     }
 
@@ -322,6 +323,7 @@ class KotlinQuickDocumentationProvider : AbstractDocumentationProvider() {
             if (quickNavigation) {
                 val referenceExpression = originalElement?.getNonStrictParentOfType<KtReferenceExpression>()
                 if (referenceExpression != null) {
+                    // INRE
                     val context = referenceExpression.analyze(BodyResolveMode.PARTIAL)
                     val declarationDescriptor = context[BindingContext.REFERENCE_TARGET, referenceExpression]
                     if (declarationDescriptor != null) {

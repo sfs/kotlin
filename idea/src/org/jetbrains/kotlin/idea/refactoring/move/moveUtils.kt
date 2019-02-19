@@ -437,6 +437,7 @@ private fun processReference(reference: PsiReference?, newElement: PsiElement, s
         when {
             reference is KtSimpleNameReference -> reference.bindToElement(newElement, shorteningMode)
             reference is PsiReferenceExpression && updateJavaReference(reference, oldElement, newElement) -> return
+            // INRE: JavaFullClassNameIndex.get
             else -> reference?.bindToElement(newElement)
         }
     }
