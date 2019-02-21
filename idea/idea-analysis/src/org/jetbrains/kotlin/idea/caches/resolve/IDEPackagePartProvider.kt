@@ -33,8 +33,10 @@ class IDEPackagePartProvider(val scope: GlobalSearchScope) : PackagePartProvider
         getPackageParts(packageFqName).flatMap(PackageParts::metadataParts).distinct()
 
     private fun getPackageParts(packageFqName: String): MutableList<PackageParts> =
+        // INRE: Reference resolve (4), KotlinChangeSignatureHandler.findTargetMember (1)
         FileBasedIndex.getInstance().getValues(KotlinModuleMappingIndex.KEY, packageFqName, scope)
 
+    // INRE: KotlinIconProvider (1)
     // Note that in case of several modules with the same name, we return all annotations on all of them, which is probably incorrect
     override fun getAnnotationsOnBinaryModule(moduleName: String): List<ClassId> =
         FileBasedIndex.getInstance().getValues(KotlinJvmModuleAnnotationsIndex.KEY, moduleName, scope).flatten()

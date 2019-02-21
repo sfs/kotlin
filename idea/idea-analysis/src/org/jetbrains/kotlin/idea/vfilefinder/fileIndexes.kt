@@ -79,6 +79,7 @@ abstract class KotlinFileIndexBase<T>(classOfIndex: Class<T>) : ScalarIndexExten
 }
 
 fun <T> KotlinFileIndexBase<T>.hasSomethingInPackage(fqName: FqName, scope: GlobalSearchScope): Boolean =
+        // INRE: KotlinQuickDocumentationProvider(2)
         !FileBasedIndex.getInstance().processValues(name, fqName, null, { _, _ -> false }, scope)
 
 object KotlinClassFileIndex : KotlinFileIndexBase<KotlinClassFileIndex>(KotlinClassFileIndex::class.java) {

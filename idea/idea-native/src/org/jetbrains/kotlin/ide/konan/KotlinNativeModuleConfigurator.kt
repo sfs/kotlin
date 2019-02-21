@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.idea.vfilefinder.hasSomethingInPackage
 import org.jetbrains.kotlin.name.FqName
 
 fun hasKotlinNativeRuntimeInScope(module: Module): Boolean {
+    // INRE: (2)
     return runReadAction {
         val scope = module.getModuleWithDependenciesAndLibrariesScope(hasKotlinFilesOnlyInTests(module))
         hasKotlinNativeMetadataFile(module.project, LibraryKindSearchScope(module, scope, NativeLibraryKind))
@@ -31,6 +32,7 @@ private val KOTLIN_NATIVE_FQ_NAMES = listOf(
 fun hasKotlinNativeMetadataFile(project: Project, scope: GlobalSearchScope): Boolean {
     return runReadAction {
         project.runWithAlternativeResolveEnabled {
+            // INRE (reproducible): 2, Native (2)
             KOTLIN_NATIVE_FQ_NAMES.any { KotlinNativeMetaFileIndex.hasSomethingInPackage(it, scope) }
         }
     }

@@ -51,6 +51,7 @@ class KotlinChangeSignatureHandler : ChangeSignatureHandler {
     override fun findTargetMember(file: PsiFile, editor: Editor) =
             file.findElementAt(editor.caretModel.offset)?.let { findTargetMember(it) }
 
+    // INRE: (2)
     override fun findTargetMember(element: PsiElement) =
             findTargetForRefactoring(element)
 

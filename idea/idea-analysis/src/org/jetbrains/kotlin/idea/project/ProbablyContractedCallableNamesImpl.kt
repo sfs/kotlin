@@ -15,7 +15,8 @@ import org.jetbrains.kotlin.resolve.lazy.ProbablyContractedCallableNames
 class ProbablyContractedCallableNamesImpl(project: Project) : ProbablyContractedCallableNames {
     private val functionNames = CachedValuesManager.getManager(project).createCachedValue(
         {
-            // INRE: from debugger NoStrataPositionManagerHelperKt (5), KotlinQuickDocumentationProvider(2)
+            // INRE: from debugger NoStrataPositionManagerHelperKt (6), KotlinQuickDocumentationProvider(6), GotoDeclarationAction
+            // INRE: references (6)
             CachedValueProvider.Result.create(
                 KotlinProbablyContractedFunctionShortNameIndex.getInstance().getAllKeys(project),
                 PsiModificationTracker.OUT_OF_CODE_BLOCK_MODIFICATION_COUNT

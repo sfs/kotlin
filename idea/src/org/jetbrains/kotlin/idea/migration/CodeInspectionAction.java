@@ -31,6 +31,7 @@ public class CodeInspectionAction extends BaseAnalysisAction {
     protected void analyze(@NotNull Project project, @NotNull AnalysisScope scope) {
         FeatureUsageTracker.getInstance().triggerFeatureUsed("codeassist.inspect.batch");
         try {
+            // Can cause INRE (3)
             runInspections(project, scope);
         }
         finally {

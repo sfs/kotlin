@@ -205,6 +205,7 @@ private val KOTLIN_JS_FQ_NAME = FqName("kotlin.js")
 fun hasKotlinJsKjsmFile(project: Project, scope: GlobalSearchScope): Boolean {
     return runReadAction {
         project.runWithAlternativeResolveEnabled {
+            // INRE: 2
             KotlinJavaScriptMetaFileIndex.hasSomethingInPackage(KOTLIN_JS_FQ_NAME, scope)
         }
     }

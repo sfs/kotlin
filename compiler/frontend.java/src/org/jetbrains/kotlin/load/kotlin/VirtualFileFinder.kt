@@ -30,7 +30,7 @@ abstract class VirtualFileFinder : KotlinClassFinder {
     abstract fun findVirtualFileWithHeader(classId: ClassId): VirtualFile?
 
     override fun findKotlinClassOrContent(classId: ClassId): KotlinClassFinder.Result? {
-        // INRE: ChangeSignatureAction(1)
+        // INRE: ChangeSignatureAction(2), Reference Resolve (3), KotlinQuickDocumentationProvider (1), UAST + Light classes (1)
         val file = findVirtualFileWithHeader(classId) ?: return null
         return KotlinBinaryClassCache.getKotlinBinaryClassOrClassFileContent(file)
     }
