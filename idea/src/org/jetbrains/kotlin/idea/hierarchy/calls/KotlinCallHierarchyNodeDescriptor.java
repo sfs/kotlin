@@ -146,6 +146,7 @@ public class KotlinCallHierarchyNodeDescriptor extends HierarchyNodeDescriptor i
             return null;
         }
 
+        // INRE
         DeclarationDescriptor descriptor = ResolutionUtils.resolveToDescriptorIfAny((KtNamedDeclaration) element, BodyResolveMode.PARTIAL);
         if (descriptor == null) return null;
 

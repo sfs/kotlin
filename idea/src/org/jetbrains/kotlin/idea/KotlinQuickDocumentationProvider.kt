@@ -153,7 +153,8 @@ class KotlinQuickDocumentationProvider : AbstractDocumentationProvider() {
 
     override fun getQuickNavigateInfo(element: PsiElement?, originalElement: PsiElement?): String? {
         // INRE (4)
-        return if (element == null) null else getText(element, originalElement, true)
+        if (element == null) return null
+        return getText(element, originalElement, true)
     }
 
     override fun generateDoc(element: PsiElement, originalElement: PsiElement?): String? {
