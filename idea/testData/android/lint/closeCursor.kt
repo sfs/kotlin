@@ -16,7 +16,7 @@ class MainActivity : Activity() {
         contentResolver.query(null, null, null, null, null)
 
         // OK, closed in chained call
-        contentResolver.query(null, null, null, null, null).close()
+        <warning descr="[RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS] Unsafe use of a nullable receiver of type Cursor?">contentResolver.query(null, null, null, null, null)</warning>.close()
 
         // KT-14677: Kotlin Lint: "Missing recycle() calls" report cursor with `use()` call
         val cursorUsed = contentResolver.query(null, null, null, null, null)
@@ -30,7 +30,7 @@ class MainActivity : Activity() {
         // KT-13372: Android Lint for Kotlin: false positive "Cursor should be freed" inside 'if' expression
         if (true) {
             val c = contentResolver.query(null, null, null, null, null)
-            c.close()
+            <warning descr="[RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS] Unsafe use of a nullable receiver of type Cursor?">c</warning>.close()
         }
     }
 }

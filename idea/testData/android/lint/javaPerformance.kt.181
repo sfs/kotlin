@@ -38,7 +38,7 @@ class JavaPerformanceTest(context: Context, attrs: AttributeSet, defStyle: Int) 
             cachedRect = Rect(0, 0, 50, 100)
         }
 
-        val b = java.lang.Boolean.valueOf(true)!! // auto-boxing
+        val b = java.lang.Boolean.valueOf(true)<warning descr="[UNNECESSARY_NOT_NULL_ASSERTION] Unnecessary non-null assertion (!!) on a non-null receiver of type Boolean!">!!</warning> // auto-boxing
         dummy(1, 2)
 
         // Non-allocations
@@ -61,7 +61,7 @@ class JavaPerformanceTest(context: Context, attrs: AttributeSet, defStyle: Int) 
         // Allocations are okay here
         java.lang.String("foo")
         val s = java.lang.String("bar")
-        val b = java.lang.Boolean.valueOf(true)!! // auto-boxing
+        val b = java.lang.Boolean.valueOf(true)<warning descr="[UNNECESSARY_NOT_NULL_ASSERTION] Unnecessary non-null assertion (!!) on a non-null receiver of type Boolean!">!!</warning> // auto-boxing
 
 
         // Sparse array candidates
