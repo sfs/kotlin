@@ -164,26 +164,63 @@ public inline class ULong @PublishedApi internal constructor(@PublishedApi inter
     @kotlin.internal.InlineOnly
     public inline fun inv(): ULong = ULong(data.inv())
 
+    /**
+     * Converts this value to Byte.
+     * The resulting Byte value is represented by least significant byte of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toByte(): Byte = data.toByte()
+    /**
+     * Converts this value to Short.
+     * The resulting Short value is represented by two least significant bytes of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toShort(): Short = data.toShort()
+    /**
+     * Converts this value to Int.
+     * The resulting Int value is represented by four least significant bytes of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toInt(): Int = data.toInt()
+    /**
+     * Converts this value to Long.
+     * The resulting Long value has the same binary representation as this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toLong(): Long = data
 
+    /**
+     * Converts this value to UByte.
+     * The resulting UByte value is represented by least significant byte of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toUByte(): UByte = data.toUByte()
+    /**
+     * Converts this value to UShort.
+     * The resulting UShort value is represented by two least significant bytes of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toUShort(): UShort = data.toUShort()
+    /**
+     * Converts this value to UInt.
+     * The resulting UInt value is represented by four least significant bytes of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toUInt(): UInt = data.toUInt()
+    /** Returns this value. */
     @kotlin.internal.InlineOnly
     public inline fun toULong(): ULong = this
 
+    /**
+     * Converts this value to Float.
+     * The resulting value is the closest Float to this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toFloat(): Float = this.toDouble().toFloat()
+    /**
+     * Converts this value to Double.
+     * The resulting value is the closest Double to this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toDouble(): Double = ulongToDouble(data)
 
@@ -191,27 +228,54 @@ public inline class ULong @PublishedApi internal constructor(@PublishedApi inter
 
 }
 
+/**
+ * Converts this value to ULong.
+ * Least significant byte of the resulting ULong value has the same binary representation as this value,
+ * whereas seven most significant bytes are filled with sign bit.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Byte.toULong(): ULong = ULong(this.toLong())
+/**
+ * Converts this value to ULong.
+ * Two least significant bytes of the resulting ULong value has the same binary representation as this value,
+ * whereas six most significant bytes are filled with sign bit.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Short.toULong(): ULong = ULong(this.toLong())
+/**
+ * Converts this value to ULong.
+ * Four least significant bytes of the resulting ULong value has the same binary representation as this value,
+ * whereas four most significant bytes are filled with sign bit.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Int.toULong(): ULong = ULong(this.toLong())
+/**
+ * Converts this value to ULong.
+ * The resulting ULong value has the same binary representation as this value.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Long.toULong(): ULong = ULong(this)
 
+/**
+ * Converts this value to ULong, rounding toward zero.
+ * Returns zero if this value is negative or NaN, ULong.MAX_VALUE if it's bigger than ULong.MAX_VALUE.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Float.toULong(): ULong = doubleToULong(this.toDouble())
+/**
+ * Converts this value to ULong, rounding toward zero.
+ * Returns zero if this value is negative or NaN, ULong.MAX_VALUE if it's bigger than ULong.MAX_VALUE.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly

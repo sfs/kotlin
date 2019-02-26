@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.generators.builtins.generateBuiltIns.BuiltInsSourceG
 import org.jetbrains.kotlin.generators.builtins.ranges.GeneratePrimitives
 import java.io.File
 import java.io.PrintWriter
+import kotlin.math.abs
 
 
 fun generateUnsignedTypes(
@@ -199,9 +200,47 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
         out.println()
     }
 
+    private fun leastSignificantBytes(t: UnsignedType): String {
+        val lsb = "least significant byte"
+        return when (t.byteSize) {
+            1 -> lsb
+            2 -> "two ${lsb}s"
+            4 -> "four ${lsb}s"
+            8 -> "eight ${lsb}s"
+            else -> throw IllegalArgumentException("Unexpected unsigned type: $t")
+        }
+    }
+
+    private fun mostSignificantBytes(from: UnsignedType, to: UnsignedType): String {
+        val msb = "most significant byte"
+        return when (abs(from.byteSize - to.byteSize)) {
+            1 -> "$msb is"
+            2 -> "two ${msb}s are"
+            3 -> "three ${msb}s are"
+            4 -> "four ${msb}s are"
+            6 -> "six ${msb}s are"
+            7 -> "seven ${msb}s are"
+            else -> throw IllegalArgumentException("Unexpected unsigned types: $from, $to$")
+        }
+    }
+
     private fun generateMemberConversions() {
         for (otherType in UnsignedType.values()) {
             val signed = otherType.asSigned.capitalized
+
+            out.println("    /**\n     * Converts this value to $signed.")
+            when {
+                otherType < type ->
+                    out.println("     * The resulting $signed value is represented by ${leastSignificantBytes(otherType)} of this value.")
+                otherType == type ->
+                    out.println("     * The resulting $signed value has the same binary representation as this value.")
+                else -> {
+                    out.println("     * ${leastSignificantBytes(type).capitalize()} of the resulting $signed value has the same binary representation as this value,")
+                    out.println("     * whereas ${mostSignificantBytes(type, otherType)} filled with zeros.")
+                }
+            }
+            out.println("     */")
+
             out.println("    @kotlin.internal.InlineOnly")
             out.print("    public inline fun to$signed(): $signed = ")
             out.println(when {
@@ -214,6 +253,24 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
 
         for (otherType in UnsignedType.values()) {
             val name = otherType.capitalized
+
+            if (type == otherType)
+                out.println("    /** Returns this value. */")
+            else {
+                out.println("    /**\n     * Converts this value to $name.")
+                when {
+                    otherType < type ->
+                        out.println("     * The resulting $name value is represented by ${leastSignificantBytes(otherType)} of this value.")
+                    otherType == type ->
+                        out.println("     * The resulting $name value has the same binary representation as this value.")
+                    else -> {
+                        out.println("     * ${leastSignificantBytes(type).capitalize()} of the resulting $name value has the same binary representation as this value,")
+                        out.println("     * whereas ${mostSignificantBytes(type, otherType)} filled with zeros.")
+                    }
+                }
+                out.println("     */")
+            }
+
             out.println("    @kotlin.internal.InlineOnly")
             out.print("    public inline fun to$name(): $name = ")
             out.println(when {
@@ -228,6 +285,15 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
     private fun generateFloatingConversions() {
         for (otherType in PrimitiveType.floatingPoint) {
             val otherName = otherType.capitalized
+
+            out.println(
+                """
+                /**
+                 * Converts this value to $otherName.
+                 * The resulting value is the closest $otherName to this value.
+                 */
+                 """.replaceIndent("    ")
+            )
             out.println("    @kotlin.internal.InlineOnly")
             out.print("    public inline fun to$otherName(): $otherName = ")
             when (type) {
@@ -244,6 +310,20 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
         for (otherType in UnsignedType.values()) {
             val otherSigned = otherType.asSigned.capitalized
             val thisSigned = type.asSigned.capitalized
+
+            out.println("/**\n * Converts this value to $className.")
+            when {
+                otherType < type -> {
+                    out.println(" * ${leastSignificantBytes(otherType).capitalize()} of the resulting $className value has the same binary representation as this value,")
+                    out.println(" * whereas ${mostSignificantBytes(otherType, type)} filled with sign bit.")
+                }
+                otherType == type ->
+                    out.println(" * The resulting $className value has the same binary representation as this value.")
+                else ->
+                    out.println(" * The resulting $className value is represented by ${leastSignificantBytes(type)} of this value.")
+            }
+            out.println(" */")
+
             out.println("@SinceKotlin(\"1.3\")")
             out.println("@ExperimentalUnsignedTypes")
             out.println("@kotlin.internal.InlineOnly")
@@ -257,6 +337,15 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
 
         for (otherType in PrimitiveType.floatingPoint) {
             val otherName = otherType.capitalized
+
+            out.println(
+                """
+                /**
+                 * Converts this value to $className, rounding toward zero.
+                 * Returns zero if this value is negative or NaN, $className.MAX_VALUE if it's bigger than $className.MAX_VALUE.
+                 */
+                """.trimIndent()
+            )
             out.println("@SinceKotlin(\"1.3\")")
             out.println("@ExperimentalUnsignedTypes")
             out.println("@kotlin.internal.InlineOnly")

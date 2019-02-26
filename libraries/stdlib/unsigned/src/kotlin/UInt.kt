@@ -164,26 +164,65 @@ public inline class UInt @PublishedApi internal constructor(@PublishedApi intern
     @kotlin.internal.InlineOnly
     public inline fun inv(): UInt = UInt(data.inv())
 
+    /**
+     * Converts this value to Byte.
+     * The resulting Byte value is represented by least significant byte of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toByte(): Byte = data.toByte()
+    /**
+     * Converts this value to Short.
+     * The resulting Short value is represented by two least significant bytes of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toShort(): Short = data.toShort()
+    /**
+     * Converts this value to Int.
+     * The resulting Int value has the same binary representation as this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toInt(): Int = data
+    /**
+     * Converts this value to Long.
+     * Four least significant bytes of the resulting Long value has the same binary representation as this value,
+     * whereas four most significant bytes are filled with zeros.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toLong(): Long = data.toLong() and 0xFFFF_FFFF
 
+    /**
+     * Converts this value to UByte.
+     * The resulting UByte value is represented by least significant byte of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toUByte(): UByte = data.toUByte()
+    /**
+     * Converts this value to UShort.
+     * The resulting UShort value is represented by two least significant bytes of this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toUShort(): UShort = data.toUShort()
+    /** Returns this value. */
     @kotlin.internal.InlineOnly
     public inline fun toUInt(): UInt = this
+    /**
+     * Converts this value to ULong.
+     * Four least significant bytes of the resulting ULong value has the same binary representation as this value,
+     * whereas four most significant bytes are filled with zeros.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toULong(): ULong = ULong(data.toLong() and 0xFFFF_FFFF)
 
+    /**
+     * Converts this value to Float.
+     * The resulting value is the closest Float to this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toFloat(): Float = this.toDouble().toFloat()
+    /**
+     * Converts this value to Double.
+     * The resulting value is the closest Double to this value.
+     */
     @kotlin.internal.InlineOnly
     public inline fun toDouble(): Double = uintToDouble(data)
 
@@ -191,27 +230,53 @@ public inline class UInt @PublishedApi internal constructor(@PublishedApi intern
 
 }
 
+/**
+ * Converts this value to UInt.
+ * Least significant byte of the resulting UInt value has the same binary representation as this value,
+ * whereas three most significant bytes are filled with sign bit.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Byte.toUInt(): UInt = UInt(this.toInt())
+/**
+ * Converts this value to UInt.
+ * Two least significant bytes of the resulting UInt value has the same binary representation as this value,
+ * whereas two most significant bytes are filled with sign bit.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Short.toUInt(): UInt = UInt(this.toInt())
+/**
+ * Converts this value to UInt.
+ * The resulting UInt value has the same binary representation as this value.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Int.toUInt(): UInt = UInt(this)
+/**
+ * Converts this value to UInt.
+ * The resulting UInt value is represented by four least significant bytes of this value.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Long.toUInt(): UInt = UInt(this.toInt())
 
+/**
+ * Converts this value to UInt, rounding toward zero.
+ * Returns zero if this value is negative or NaN, UInt.MAX_VALUE if it's bigger than UInt.MAX_VALUE.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Float.toUInt(): UInt = doubleToUInt(this.toDouble())
+/**
+ * Converts this value to UInt, rounding toward zero.
+ * Returns zero if this value is negative or NaN, UInt.MAX_VALUE if it's bigger than UInt.MAX_VALUE.
+ */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
