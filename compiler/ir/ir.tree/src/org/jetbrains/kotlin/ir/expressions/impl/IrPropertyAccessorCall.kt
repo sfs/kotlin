@@ -26,8 +26,6 @@ import org.jetbrains.kotlin.ir.symbols.impl.createFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
-import java.lang.AssertionError
-import java.lang.UnsupportedOperationException
 
 abstract class IrPropertyAccessorCallBase(
     startOffset: Int, endOffset: Int,

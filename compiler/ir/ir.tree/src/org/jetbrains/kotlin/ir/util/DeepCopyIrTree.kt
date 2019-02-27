@@ -221,9 +221,7 @@ open class DeepCopyIrTree : IrElementTransformerVoid() {
             irValueParameter.transformAnnotations(this)
         }
 
-    // TODO visitTypeParameter
-    // TODO visitValueParameter
-
+    @Suppress("DEPRECATION_ERROR")
     override fun visitProperty(declaration: IrProperty): IrProperty =
         IrPropertyImpl(
             declaration.startOffset, declaration.endOffset,
@@ -500,7 +498,7 @@ open class DeepCopyIrTree : IrElementTransformerVoid() {
         val newSetterSymbol = newProperty.setter?.let { IrSimpleFunctionSymbolImpl(it.original) }
         return IrPropertyReferenceImpl(
             expression.startOffset, expression.endOffset, expression.type,
-            newProperty,
+            IrPropertySymbolImpl(newProperty),
             expression.typeArgumentsCount, newFieldSymbol, newGetterSymbol, newSetterSymbol,
             mapStatementOrigin(expression.origin)
         ).apply {

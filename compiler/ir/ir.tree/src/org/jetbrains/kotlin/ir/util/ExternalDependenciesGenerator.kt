@@ -33,10 +33,11 @@ class ExternalDependenciesGenerator(
     )
 
     fun generateUnboundSymbolsAsDependencies(irModule: IrModuleFragment, bindingContext: BindingContext? = null) {
-        DependencyGenerationTask(irModule, bindingContext).run()
+        // TODO drop irModule
+        DependencyGenerationTask(bindingContext).run()
     }
 
-    private inner class DependencyGenerationTask(val irModule: IrModuleFragment, val bindingContext: BindingContext?) {
+    private inner class DependencyGenerationTask(val bindingContext: BindingContext?) {
 
         fun run() {
             stubGenerator.unboundSymbolGeneration = true
@@ -55,6 +56,9 @@ class ExternalDependenciesGenerator(
             ArrayList(symbolTable.unboundSimpleFunctions).forEach {
                 stubGenerator.generateFunctionStub(it.descriptor)
             }
+            ArrayList(symbolTable.unboundProperties).forEach {
+                stubGenerator.generatePropertyStub(it.descriptor)
+            }
             ArrayList(symbolTable.unboundTypeParameters).forEach {
                 stubGenerator.generateOrGetTypeParameterStub(it.descriptor)
             }
@@ -66,6 +70,7 @@ class ExternalDependenciesGenerator(
             assert(symbolTable.unboundEnumEntries.isEmpty())
             assert(symbolTable.unboundFields.isEmpty())
             assert(symbolTable.unboundSimpleFunctions.isEmpty())
+            assert(symbolTable.unboundProperties.isEmpty()) { "There are unbound properties: ${symbolTable.unboundProperties.size}"}
             assert(symbolTable.unboundTypeParameters.isEmpty())
         }
     }

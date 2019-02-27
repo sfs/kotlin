@@ -118,3 +118,7 @@ fun createFunctionSymbol(descriptor: CallableMemberDescriptor): IrFunctionSymbol
 class IrReturnableBlockSymbolImpl(descriptor: FunctionDescriptor) :
     IrBindableSymbolBase<FunctionDescriptor, IrReturnableBlock>(descriptor),
     IrReturnableBlockSymbol
+
+class IrPropertySymbolImpl(descriptor: PropertyDescriptor) :
+    IrBindableSymbolBase<PropertyDescriptor, IrProperty>(descriptor),
+    IrPropertySymbol

@@ -200,6 +200,7 @@ open class SymbolTable : ReferenceSymbolTable {
     private val enumEntrySymbolTable = FlatSymbolTable<ClassDescriptor, IrEnumEntry, IrEnumEntrySymbol>()
     private val fieldSymbolTable = FlatSymbolTable<PropertyDescriptor, IrField, IrFieldSymbol>()
     private val simpleFunctionSymbolTable = FlatSymbolTable<FunctionDescriptor, IrSimpleFunction, IrSimpleFunctionSymbol>()
+    private val propertySymbolTable = FlatSymbolTable<PropertyDescriptor, IrProperty, IrPropertySymbol>()
 
     private val globalTypeParameterSymbolTable = FlatSymbolTable<TypeParameterDescriptor, IrTypeParameter, IrTypeParameterSymbol>()
     private val scopedTypeParameterSymbolTable = ScopedSymbolTable<TypeParameterDescriptor, IrTypeParameter, IrTypeParameterSymbol>()
@@ -321,9 +322,34 @@ open class SymbolTable : ReferenceSymbolTable {
 
     val unboundFields: Set<IrFieldSymbol> get() = fieldSymbolTable.unboundSymbols
 
+    @Deprecated(message = "Use declareProperty/referenceProperty", level = DeprecationLevel.WARNING)
     val propertyTable = HashMap<PropertyDescriptor, IrProperty>()
+
     override fun referenceProperty(descriptor: PropertyDescriptor, generate: () -> IrProperty): IrProperty =
         propertyTable.getOrPut(descriptor, generate)
+
+    fun declareProperty(
+        startOffset: Int,
+        endOffset: Int,
+        origin: IrDeclarationOrigin,
+        descriptor: PropertyDescriptor,
+        isDelegated: Boolean = descriptor.isDelegated,
+        propertyFactory: (IrPropertySymbol) -> IrProperty = { symbol ->
+            IrPropertyImpl(startOffset, endOffset, origin, symbol, isDelegated = isDelegated).apply {
+                metadata = MetadataSource.Property(symbol.descriptor)
+            }
+        }
+    ): IrProperty =
+        propertySymbolTable.declare(
+            descriptor,
+            { IrPropertySymbolImpl(descriptor) },
+            propertyFactory
+        )
+
+    fun referenceProperty(descriptor: PropertyDescriptor): IrPropertySymbol =
+        propertySymbolTable.referenced(descriptor) { IrPropertySymbolImpl(descriptor) }
+
+    val unboundProperties: Set<IrPropertySymbol> get() = propertySymbolTable.unboundSymbols
 
     fun declareSimpleFunction(
         startOffset: Int,
