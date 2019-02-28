@@ -200,43 +200,26 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
         out.println()
     }
 
-    private fun leastSignificantBytes(t: UnsignedType): String {
-        val lsb = "least significant byte"
-        return when (t.byteSize) {
-            1 -> lsb
-            2 -> "two ${lsb}s"
-            4 -> "four ${lsb}s"
-            8 -> "eight ${lsb}s"
-            else -> throw IllegalArgumentException("Unexpected unsigned type: $t")
-        }
-    }
-
-    private fun mostSignificantBytes(from: UnsignedType, to: UnsignedType): String {
-        val msb = "most significant byte"
-        return when (abs(from.byteSize - to.byteSize)) {
-            1 -> "$msb is"
-            2 -> "two ${msb}s are"
-            3 -> "three ${msb}s are"
-            4 -> "four ${msb}s are"
-            6 -> "six ${msb}s are"
-            7 -> "seven ${msb}s are"
-            else -> throw IllegalArgumentException("Unexpected unsigned types: $from, $to$")
-        }
-    }
+    private val lsb = "least significant bits"
+    private val msb = "most significant bits"
 
     private fun generateMemberConversions() {
         for (otherType in UnsignedType.values()) {
             val signed = otherType.asSigned.capitalized
 
-            out.println("    /**\n     * Converts this value to $signed.")
+            out.println("    /**\n     * Converts this value to [$signed].\n     *")
             when {
-                otherType < type ->
-                    out.println("     * The resulting $signed value is represented by ${leastSignificantBytes(otherType)} of this value.")
-                otherType == type ->
-                    out.println("     * The resulting $signed value has the same binary representation as this value.")
+                otherType < type -> {
+                    out.println("     * The resulting [$signed] value is represented by ${otherType.bitSize} $lsb of this [$className] value.")
+                    out.println("     * Note that the resulting [$signed] value may be negative.")
+                }
+                otherType == type -> {
+                    out.println("     * The resulting [$signed] value has the same binary representation as this [$className] value.")
+                    out.println("     * Note that the resulting [$signed] value is negative if this [$className] value is greater than [$signed.MAX_VALUE].")
+                }
                 else -> {
-                    out.println("     * ${leastSignificantBytes(type).capitalize()} of the resulting $signed value has the same binary representation as this value,")
-                    out.println("     * whereas ${mostSignificantBytes(type, otherType)} filled with zeros.")
+                    out.println("     * ${type.bitSize} $lsb of the resulting [$signed] value has the same binary representation as this [$className] value,")
+                    out.println("     * whereas ${otherType.bitSize - type.bitSize} $msb are filled with zeros.")
                 }
             }
             out.println("     */")
@@ -257,15 +240,13 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
             if (type == otherType)
                 out.println("    /** Returns this value. */")
             else {
-                out.println("    /**\n     * Converts this value to $name.")
+                out.println("    /**\n     * Converts this value to [$name].\n     *")
                 when {
                     otherType < type ->
-                        out.println("     * The resulting $name value is represented by ${leastSignificantBytes(otherType)} of this value.")
-                    otherType == type ->
-                        out.println("     * The resulting $name value has the same binary representation as this value.")
+                        out.println("     * The resulting [$name] value is represented by ${otherType.bitSize} $lsb of this [$className] value.")
                     else -> {
-                        out.println("     * ${leastSignificantBytes(type).capitalize()} of the resulting $name value has the same binary representation as this value,")
-                        out.println("     * whereas ${mostSignificantBytes(type, otherType)} filled with zeros.")
+                        out.println("     * ${type.bitSize} $msb of the resulting [$name] value has the same binary representation as this [$className] value,")
+                        out.println("     * whereas ${otherType.bitSize - type.bitSize} $msb are filled with zeros.")
                     }
                 }
                 out.println("     */")
@@ -289,8 +270,10 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
             out.println(
                 """
                 /**
-                 * Converts this value to $otherName.
-                 * The resulting value is the closest $otherName to this value.
+                 * Converts this value to [$otherName].
+                 *
+                 * The resulting value is the closest [$otherName] to this [$className] value.
+                 * In case when this [$className] value is exactly between two [$otherName]s, the smaller one is selected.
                  */
                  """.replaceIndent("    ")
             )
@@ -311,19 +294,20 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
             val otherSigned = otherType.asSigned.capitalized
             val thisSigned = type.asSigned.capitalized
 
-            out.println("/**\n * Converts this value to $className.")
+            out.println("/**\n * Converts this value to [$className].\n *")
             when {
                 otherType < type -> {
-                    out.println(" * ${leastSignificantBytes(otherType).capitalize()} of the resulting $className value has the same binary representation as this value,")
-                    out.println(" * whereas ${mostSignificantBytes(otherType, type)} filled with sign bit.")
+                    out.println(" * ${otherType.bitSize} $lsb of the resulting [$className] value has the same binary representation as this [$otherSigned] value,")
+                    out.println(" * whereas ${type.bitSize - otherType.bitSize} $msb are filled with sign bit.")
                 }
-                otherType == type ->
-                    out.println(" * The resulting $className value has the same binary representation as this value.")
+                otherType == type -> {
+                    out.println(" * The resulting [$className] value has the same binary representation as this [$otherSigned] value.")
+                    out.println(" * Note that the resulting [$className] value is greater than [$otherSigned.MAX_VALUE] if this [$otherSigned] value is negative.")
+                }
                 else ->
-                    out.println(" * The resulting $className value is represented by ${leastSignificantBytes(type)} of this value.")
+                    out.println(" * The resulting [$className] value is represented by ${type.bitSize} $lsb of this [$otherSigned] value.")
             }
             out.println(" */")
-
             out.println("@SinceKotlin(\"1.3\")")
             out.println("@ExperimentalUnsignedTypes")
             out.println("@kotlin.internal.InlineOnly")
@@ -341,8 +325,8 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
             out.println(
                 """
                 /**
-                 * Converts this value to $className, rounding toward zero.
-                 * Returns zero if this value is negative or NaN, $className.MAX_VALUE if it's bigger than $className.MAX_VALUE.
+                 * Converts this value to [$className], rounding down.
+                 * Returns zero if this [$otherName] value is negative or NaN, [$className.MAX_VALUE] if it's bigger than [$className.MAX_VALUE].
                  */
                 """.trimIndent()
             )

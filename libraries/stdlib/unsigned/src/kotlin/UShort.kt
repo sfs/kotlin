@@ -159,35 +159,42 @@ public inline class UShort @PublishedApi internal constructor(@PublishedApi inte
     public inline fun inv(): UShort = UShort(data.inv())
 
     /**
-     * Converts this value to Byte.
-     * The resulting Byte value is represented by least significant byte of this value.
+     * Converts this value to [Byte].
+     *
+     * The resulting [Byte] value is represented by 8 least significant bits of this [UShort] value.
+     * Note that the resulting [Byte] value may be negative.
      */
     @kotlin.internal.InlineOnly
     public inline fun toByte(): Byte = data.toByte()
     /**
-     * Converts this value to Short.
-     * The resulting Short value has the same binary representation as this value.
+     * Converts this value to [Short].
+     *
+     * The resulting [Short] value has the same binary representation as this [UShort] value.
+     * Note that the resulting [Short] value is negative if this [UShort] value is greater than [Short.MAX_VALUE].
      */
     @kotlin.internal.InlineOnly
     public inline fun toShort(): Short = data
     /**
-     * Converts this value to Int.
-     * Two least significant bytes of the resulting Int value has the same binary representation as this value,
-     * whereas two most significant bytes are filled with zeros.
+     * Converts this value to [Int].
+     *
+     * 16 least significant bits of the resulting [Int] value has the same binary representation as this [UShort] value,
+     * whereas 16 most significant bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toInt(): Int = data.toInt() and 0xFFFF
     /**
-     * Converts this value to Long.
-     * Two least significant bytes of the resulting Long value has the same binary representation as this value,
-     * whereas six most significant bytes are filled with zeros.
+     * Converts this value to [Long].
+     *
+     * 16 least significant bits of the resulting [Long] value has the same binary representation as this [UShort] value,
+     * whereas 48 most significant bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toLong(): Long = data.toLong() and 0xFFFF
 
     /**
-     * Converts this value to UByte.
-     * The resulting UByte value is represented by least significant byte of this value.
+     * Converts this value to [UByte].
+     *
+     * The resulting [UByte] value is represented by 8 least significant bits of this [UShort] value.
      */
     @kotlin.internal.InlineOnly
     public inline fun toUByte(): UByte = data.toUByte()
@@ -195,29 +202,35 @@ public inline class UShort @PublishedApi internal constructor(@PublishedApi inte
     @kotlin.internal.InlineOnly
     public inline fun toUShort(): UShort = this
     /**
-     * Converts this value to UInt.
-     * Two least significant bytes of the resulting UInt value has the same binary representation as this value,
-     * whereas two most significant bytes are filled with zeros.
+     * Converts this value to [UInt].
+     *
+     * 16 most significant bits of the resulting [UInt] value has the same binary representation as this [UShort] value,
+     * whereas 16 most significant bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toUInt(): UInt = UInt(data.toInt() and 0xFFFF)
     /**
-     * Converts this value to ULong.
-     * Two least significant bytes of the resulting ULong value has the same binary representation as this value,
-     * whereas six most significant bytes are filled with zeros.
+     * Converts this value to [ULong].
+     *
+     * 16 most significant bits of the resulting [ULong] value has the same binary representation as this [UShort] value,
+     * whereas 48 most significant bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toULong(): ULong = ULong(data.toLong() and 0xFFFF)
 
     /**
-     * Converts this value to Float.
-     * The resulting value is the closest Float to this value.
+     * Converts this value to [Float].
+     *
+     * The resulting value is the closest [Float] to this [UShort] value.
+     * In case when this [UShort] value is exactly between two [Float]s, the smaller one is selected.
      */
     @kotlin.internal.InlineOnly
     public inline fun toFloat(): Float = this.toInt().toFloat()
     /**
-     * Converts this value to Double.
-     * The resulting value is the closest Double to this value.
+     * Converts this value to [Double].
+     *
+     * The resulting value is the closest [Double] to this [UShort] value.
+     * In case when this [UShort] value is exactly between two [Double]s, the smaller one is selected.
      */
     @kotlin.internal.InlineOnly
     public inline fun toDouble(): Double = this.toInt().toDouble()
@@ -227,33 +240,38 @@ public inline class UShort @PublishedApi internal constructor(@PublishedApi inte
 }
 
 /**
- * Converts this value to UShort.
- * Least significant byte of the resulting UShort value has the same binary representation as this value,
- * whereas most significant byte is filled with sign bit.
+ * Converts this value to [UShort].
+ *
+ * 8 least significant bits of the resulting [UShort] value has the same binary representation as this [Byte] value,
+ * whereas 8 most significant bits are filled with sign bit.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Byte.toUShort(): UShort = UShort(this.toShort())
 /**
- * Converts this value to UShort.
- * The resulting UShort value has the same binary representation as this value.
+ * Converts this value to [UShort].
+ *
+ * The resulting [UShort] value has the same binary representation as this [Short] value.
+ * Note that the resulting [UShort] value is greater than [Short.MAX_VALUE] if this [Short] value is negative.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Short.toUShort(): UShort = UShort(this)
 /**
- * Converts this value to UShort.
- * The resulting UShort value is represented by two least significant bytes of this value.
+ * Converts this value to [UShort].
+ *
+ * The resulting [UShort] value is represented by 16 least significant bits of this [Int] value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Int.toUShort(): UShort = UShort(this.toShort())
 /**
- * Converts this value to UShort.
- * The resulting UShort value is represented by two least significant bytes of this value.
+ * Converts this value to [UShort].
+ *
+ * The resulting [UShort] value is represented by 16 least significant bits of this [Long] value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -261,16 +279,16 @@ public inline fun Int.toUShort(): UShort = UShort(this.toShort())
 public inline fun Long.toUShort(): UShort = UShort(this.toShort())
 
 /**
- * Converts this value to UShort, rounding toward zero.
- * Returns zero if this value is negative or NaN, UShort.MAX_VALUE if it's bigger than UShort.MAX_VALUE.
+ * Converts this value to [UShort], rounding down.
+ * Returns zero if this [Float] value is negative or NaN, [UShort.MAX_VALUE] if it's bigger than [UShort.MAX_VALUE].
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Float.toUShort(): UShort = doubleToUShort(this.toDouble())
 /**
- * Converts this value to UShort, rounding toward zero.
- * Returns zero if this value is negative or NaN, UShort.MAX_VALUE if it's bigger than UShort.MAX_VALUE.
+ * Converts this value to [UShort], rounding down.
+ * Returns zero if this [Double] value is negative or NaN, [UShort.MAX_VALUE] if it's bigger than [UShort.MAX_VALUE].
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
