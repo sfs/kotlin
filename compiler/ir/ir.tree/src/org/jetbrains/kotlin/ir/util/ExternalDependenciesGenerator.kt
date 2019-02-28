@@ -65,13 +65,17 @@ class ExternalDependenciesGenerator(
 
             deserializer?.declareForwardDeclarations()
 
-            assert(symbolTable.unboundClasses.isEmpty())
-            assert(symbolTable.unboundConstructors.isEmpty())
-            assert(symbolTable.unboundEnumEntries.isEmpty())
-            assert(symbolTable.unboundFields.isEmpty())
-            assert(symbolTable.unboundSimpleFunctions.isEmpty())
-            assert(symbolTable.unboundProperties.isEmpty()) { "There are unbound properties: ${symbolTable.unboundProperties.size}"}
-            assert(symbolTable.unboundTypeParameters.isEmpty())
+            assertEmpty(symbolTable.unboundClasses, "classes")
+            assertEmpty(symbolTable.unboundConstructors, "constructors")
+            assertEmpty(symbolTable.unboundEnumEntries, "enum entries")
+            assertEmpty(symbolTable.unboundFields, "fields")
+            assertEmpty(symbolTable.unboundSimpleFunctions, "simple functions")
+            assertEmpty(symbolTable.unboundProperties, "properties")
+            assertEmpty(symbolTable.unboundTypeParameters, "type parameters")
+        }
+
+        private fun assertEmpty(s: Set<*>, marker: String) {
+            assert(s.isEmpty()) { "$marker: ${s.size} unbound"}
         }
     }
 }
