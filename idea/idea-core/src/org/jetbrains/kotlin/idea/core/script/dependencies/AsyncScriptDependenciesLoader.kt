@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.idea.core.script.dependencies
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProgressIndicator
@@ -21,7 +20,6 @@ import org.jetbrains.kotlin.script.LegacyResolverWrapper
 import org.jetbrains.kotlin.script.asResolveFailure
 import org.jetbrains.kotlin.script.findScriptDefinition
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.locks.LockSupport
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.write
 import kotlin.script.experimental.dependencies.AsyncDependenciesResolver
@@ -57,17 +55,13 @@ class AsyncScriptDependenciesLoader internal constructor(project: Project) : Scr
             }
 
             notifyRootChange = true
-        }
 
-        ApplicationManager.getApplication().executeOnPooledThread {
-            while (backgroundTasksQueue != null) {
-                LockSupport.parkNanos(50000000)
+            backgroundTasksQueue!!.addLastTask {
+                lock.write {
+                    notifyRootChange = false
+                }
+                submitMakeRootsChange()
             }
-
-            lock.write {
-                notifyRootChange = false
-            }
-            submitMakeRootsChange()
         }
 
         return false
@@ -104,6 +98,8 @@ class AsyncScriptDependenciesLoader internal constructor(project: Project) : Scr
         private val sequenceOfFiles: ConcurrentLinkedQueue<VirtualFile> = ConcurrentLinkedQueue()
         private var forceStop : Boolean = false
         private var startedSilently : Boolean = false
+
+        private var lastTask: (() -> Unit)? = null
 
         fun start() {
             if (shouldShowNotification()) {
@@ -147,10 +143,16 @@ class AsyncScriptDependenciesLoader internal constructor(project: Project) : Scr
             }
         }
 
+        fun addLastTask(f: () -> Unit) {
+            lastTask = f
+        }
+
         private fun loadDependencies(indicator: ProgressIndicator?) {
             while (true) {
                 if (forceStop) return
                 if (indicator?.isCanceled == true || sequenceOfFiles.isEmpty()) {
+                    lastTask?.invoke()
+
                     lock.write {
                         backgroundTasksQueue = null
                     }
