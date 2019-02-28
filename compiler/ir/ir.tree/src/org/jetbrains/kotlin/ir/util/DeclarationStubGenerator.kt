@@ -97,7 +97,9 @@ class DeclarationStubGenerator(
             UNDEFINED_OFFSET, UNDEFINED_OFFSET, origin, descriptor.original,
             isDelegated = descriptor.isDelegated
         ) {
-            IrLazyProperty(UNDEFINED_OFFSET, UNDEFINED_OFFSET, origin, it, this, typeTranslator, bindingContext)
+            // TODO should work as usual with 'findDeserializedDeclaration(symbol)'
+            deserializer?.findDeserializedDeclaration(descriptor)
+                ?: IrLazyProperty(UNDEFINED_OFFSET, UNDEFINED_OFFSET, origin, it, this, typeTranslator, bindingContext)
         }
     }
 
