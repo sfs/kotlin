@@ -31,11 +31,21 @@ import javax.swing.Icon
  * We need to wrap ITNReporter for force showing or errors from kotlin plugin even from released version of IDEA.
  */
 class KotlinReportSubmitter : ITNReporterCompat() {
+    companion object {
+        private const val KOTLIN_FATAL_ERROR_NOTIFICATION_PROPERTY = "kotlin.fatal.error.notification"
+        private const val IDEA_FATAL_ERROR_NOTIFICATION_PROPERTY = "idea.fatal.error.notification"
+        private const val DISABLED_VALUE = "disabled"
+        private const val ENABLED_VALUE = "enabled"
+    }
+
     private var hasUpdate = false
     private var hasLatestVersion = false
 
     override fun showErrorInRelease(event: IdeaLoggingEvent): Boolean {
-        val notificationEnabled = "disabled" != System.getProperty("kotlin.fatal.error.notification", "enabled")
+        val kotlinNotificationEnabled = DISABLED_VALUE != System.getProperty(KOTLIN_FATAL_ERROR_NOTIFICATION_PROPERTY, ENABLED_VALUE)
+        val ideaNotificationEnabled = DISABLED_VALUE != System.getProperty(IDEA_FATAL_ERROR_NOTIFICATION_PROPERTY, ENABLED_VALUE)
+        val notificationEnabled = kotlinNotificationEnabled || ideaNotificationEnabled
+
         return notificationEnabled && (!hasUpdate || ApplicationManager.getApplication().isInternal)
     }
 
