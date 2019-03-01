@@ -27,7 +27,6 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.Alarm
 import com.intellij.util.io.HttpRequests
 import com.intellij.util.text.VersionComparatorUtil
-import org.jetbrains.kotlin.idea.update.PluginUpdateVerifier
 import org.jetbrains.kotlin.idea.update.verify
 import java.io.File
 import java.io.IOException
