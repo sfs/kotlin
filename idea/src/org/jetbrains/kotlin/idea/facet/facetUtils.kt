@@ -19,7 +19,6 @@ package org.jetbrains.kotlin.idea.facet
 import com.intellij.openapi.externalSystem.service.project.IdeModifiableModelsProvider
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.projectRoots.JavaSdk
-import com.intellij.openapi.projectRoots.JavaSdkVersion
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.roots.ExternalProjectSystemRegistry
 import com.intellij.openapi.roots.ModuleRootManager
@@ -39,6 +38,7 @@ import org.jetbrains.kotlin.idea.core.isAndroidModule
 import org.jetbrains.kotlin.idea.framework.KotlinSdkType
 import org.jetbrains.kotlin.idea.platform.tooling
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
+import org.jetbrains.kotlin.idea.versions.toJvmTarget
 import org.jetbrains.kotlin.platform.DefaultIdeTargetPlatformKindProvider
 import org.jetbrains.kotlin.platform.IdePlatform
 import org.jetbrains.kotlin.platform.IdePlatformKind
@@ -58,9 +58,7 @@ private fun getDefaultTargetPlatform(module: Module, rootModel: ModuleRootModel?
         if (jvmTarget == null) {
             val sdk = ((rootModel ?: ModuleRootManager.getInstance(module))).sdk
             val sdkVersion = (sdk?.sdkType as? JavaSdk)?.getVersion(sdk)
-            if (sdkVersion == null || sdkVersion >= JavaSdkVersion.JDK_1_8) {
-                jvmTarget = JvmTarget.JVM_1_8
-            }
+            jvmTarget = sdkVersion?.toJvmTarget()
         }
         return if (jvmTarget != null) JvmIdePlatformKind.Platform(jvmTarget) else JvmIdePlatformKind.defaultPlatform
     }

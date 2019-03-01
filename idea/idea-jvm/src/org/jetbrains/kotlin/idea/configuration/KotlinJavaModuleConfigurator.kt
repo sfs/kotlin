@@ -96,6 +96,7 @@ open class KotlinJavaModuleConfigurator protected constructor() : KotlinWithLibr
     override val libraryMatcher: (Library, Project) -> Boolean =
         { library, _ -> JavaRuntimeDetectionUtil.getRuntimeJar(library.getFiles(OrderRootType.CLASSES).asList()) != null }
 
+    // TODO: generalize this code to support JVM target versions greater than 1.8
     override fun configureKotlinSettings(modules: List<Module>) {
         val project = modules.firstOrNull()?.project ?: return
         val canChangeProjectSettings = project.allModules().all {
