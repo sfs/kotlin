@@ -137,7 +137,7 @@ open class DummyFrameworkTask: DefaultTask() {
  */
 open class DefFileTask : DefaultTask() {
 
-    @Input
+    @Nested
     lateinit var pod: CocoapodsExtension.CocoapodsDependency
 
     @get:OutputFile
