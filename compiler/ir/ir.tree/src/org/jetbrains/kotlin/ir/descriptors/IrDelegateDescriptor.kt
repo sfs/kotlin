@@ -45,6 +45,7 @@ interface IrImplementingDelegateDescriptor : IrDelegateDescriptor {
 
 abstract class IrDelegateDescriptorBase(
     containingDeclaration: DeclarationDescriptor,
+    source: SourceElement,
     name: Name,
     delegateType: KotlinType,
     annotations: Annotations = Annotations.EMPTY
@@ -58,7 +59,7 @@ abstract class IrDelegateDescriptorBase(
         /* isVar = */ false,
         name,
         CallableMemberDescriptor.Kind.SYNTHESIZED,
-        SourceElement.NO_SOURCE,
+        source,
         /* lateInit = */ false,
         /* isConst = */ false,
         /* isExpect = */ false,
@@ -95,6 +96,9 @@ class IrPropertyDelegateDescriptorImpl(
 ) :
     IrDelegateDescriptorBase(
         correspondingProperty.containingDeclaration,
+        // Inherit the source node so that the parent class of package-level
+        // delegated property backing fields can be located by codegen.
+        correspondingProperty.source,
         getDelegateName(correspondingProperty.name),
         delegateType,
         correspondingProperty.delegateField?.annotations ?: Annotations.EMPTY
@@ -108,6 +112,7 @@ class IrImplementingDelegateDescriptorImpl(
 ) :
     IrDelegateDescriptorBase(
         containingDeclaration,
+        SourceElement.NO_SOURCE,
         getDelegateName(containingDeclaration, correspondingSuperType),
         delegateType
     ),

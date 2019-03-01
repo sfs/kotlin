@@ -71,6 +71,7 @@ internal val jvmPhases = namedIrFilePhase(
 
             enumClassPhase then
             objectClassPhase then
+            propertyDelegationPhase then
             makeInitializersPhase(JvmLoweredDeclarationOrigin.CLASS_STATIC_INITIALIZER, true) then
             singletonReferencesPhase then
             syntheticAccessorPhase then
