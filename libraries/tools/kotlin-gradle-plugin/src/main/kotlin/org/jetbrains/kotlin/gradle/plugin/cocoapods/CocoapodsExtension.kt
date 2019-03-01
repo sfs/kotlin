@@ -9,6 +9,8 @@ import org.gradle.api.Named
 import org.gradle.api.NamedDomainObjectSet
 import org.gradle.api.Project
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 
 open class CocoapodsExtension(private val project: Project) {
@@ -44,30 +46,36 @@ open class CocoapodsExtension(private val project: Project) {
     @Input
     var homepage: String? = null
 
-    private val pods_ = project.container(CocoapodsDependency::class.java)
+    private val _pods = project.container(CocoapodsDependency::class.java)
+
+    // For some reason Gradle doesn't consume the @Nested annotation on NamedDomainObjectContainer.
+    @get:Nested
+    protected val podsAsTaskInput: List<CocoapodsDependency>
+        get() = _pods.toList()
 
     /**
      * Returns a list of pod dependencies.
      */
-    @get:Input
+    // Already taken into account as a task input in the [podsAsTaskInput] property.
+    @get:Internal
     val pods: NamedDomainObjectSet<CocoapodsDependency>
-        get() = pods_
+        get() = _pods
 
     /**
      * Add a Cocoapods dependency to the pod built from this project.
      */
     @JvmOverloads
     fun pod(name: String, version: String? = null, moduleName: String = name) {
-        check(pods_.findByName(name) == null) { "Project already has a Cocoapods dependency with name $name" }
-        pods_.add(CocoapodsDependency(name, version, moduleName))
+        check(_pods.findByName(name) == null) { "Project already has a Cocoapods dependency with name $name" }
+        _pods.add(CocoapodsDependency(name, version, moduleName))
     }
 
     data class CocoapodsDependency(
         private val name: String,
-        val version: String?,
-        val moduleName: String
-    ) : Named, java.io.Serializable {
+        @Optional @Input val version: String?,
+        @Input val moduleName: String
+    ) : Named {
+        @Input
         override fun getName(): String = name
     }
-
 }
