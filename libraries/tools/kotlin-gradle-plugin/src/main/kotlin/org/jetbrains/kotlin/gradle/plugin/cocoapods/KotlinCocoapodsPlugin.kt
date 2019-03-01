@@ -163,7 +163,8 @@ open class KotlinCocoapodsPlugin: Plugin<Project> {
         const val EXTENSION_NAME = "cocoapods"
         const val TASK_GROUP = "cocoapods"
 
-        // TODO: Move in PropertyProvider.
+        // We don't move these properties in PropertiesProvider because
+        // they are not intended to be overridden in local.properties.
         const val TARGET_PROPERTY = "kotlin.native.cocoapods.target"
         const val CONFIGURATION_PROPERTY = "kotlin.native.cocoapods.configuration"
 
