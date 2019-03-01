@@ -103,8 +103,10 @@ open class DummyFrameworkTask: DefaultTask() {
 
     private fun copyResource(from: String, to: File) {
         to.parentFile.mkdirs()
-        to.outputStream().use {
-            javaClass.getResourceAsStream(from).copyTo(it)
+        to.outputStream().use { file ->
+            javaClass.getResourceAsStream(from).use { resource ->
+                resource.copyTo(file)
+            }
         }
     }
 

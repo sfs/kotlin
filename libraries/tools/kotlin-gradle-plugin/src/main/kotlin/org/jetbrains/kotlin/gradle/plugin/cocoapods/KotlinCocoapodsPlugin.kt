@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
 import org.jetbrains.kotlin.gradle.tasks.DefFileTask
 import org.jetbrains.kotlin.gradle.tasks.DummyFrameworkTask
 import org.jetbrains.kotlin.gradle.tasks.PodspecTask
+import org.jetbrains.kotlin.gradle.utils.asValidTaskName
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
@@ -157,7 +158,7 @@ open class KotlinCocoapodsPlugin: Plugin<Project> {
                 target.compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME).cinterops.create(pod.name) { interop ->
 
                     val defTask = project.tasks.create(
-                        lowerCamelCaseName("generateDef", pod.name, target.name),
+                        lowerCamelCaseName("generateDef", pod.name, target.name).asValidTaskName(),
                         DefFileTask::class.java
                     ) {
                         it.pod = pod
