@@ -14,47 +14,49 @@
  * limitations under the License.
  */
 
-@file:Suppress("unused") // usages in build scripts are not tracked properly
+// usages in build scripts are not tracked properly
+@file:Suppress("unused")
 
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.artifacts.repositories.IvyArtifactRepository
-import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.JavaExec
 import org.gradle.kotlin.dsl.*
 import java.io.File
 
 private fun Project.intellijRepoDir() = File("${project.rootDir.absoluteFile}/dependencies/repo")
 
+private fun Project.ideModuleName() = when (IdeVersionConfigurator.currentIde.kind) {
+    Ide.Kind.AndroidStudio -> "android-studio-ide"
+    Ide.Kind.IntelliJ -> {
+        if (getBooleanProperty("intellijUltimateEnabled") == true) "ideaIU" else "ideaIC"
+    }
+}
+
+private fun Project.ideModuleVersion() = when (IdeVersionConfigurator.currentIde.kind) {
+    Ide.Kind.AndroidStudio -> rootProject.findProperty("versions.androidStudioBuild")
+    Ide.Kind.IntelliJ -> rootProject.findProperty("versions.intellijSdk")
+}
+
 fun RepositoryHandler.intellijSdkRepo(project: Project): IvyArtifactRepository = ivy {
     val baseDir = project.intellijRepoDir()
     setUrl(baseDir)
 
-    if (IdeVersionConfigurator.currentIde.kind == Ide.Kind.IntelliJ) {
-        ivyPattern("${baseDir.canonicalPath}/[organisation]/[revision]/[module]Ultimate.ivy.xml")
-        ivyPattern("${baseDir.canonicalPath}/[organisation]/[revision]/intellijUltimate.plugin.[module].ivy.xml")
-        artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/[module]Ultimate/lib/[artifact](-[classifier]).jar")
-        artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/intellijUltimate/plugins/[module]/lib/[artifact](-[classifier]).jar")
-    }
+    ivyPattern("${baseDir.canonicalPath}/[organisation]/[module]/[revision]/ivy/[module].ivy.xml")
+    ivyPattern("${baseDir.canonicalPath}/[organisation]/${project.ideModuleName()}/[revision]/ivy/[module].ivy.xml")
 
-    ivyPattern("${baseDir.canonicalPath}/[organisation]/[revision]/[module].ivy.xml")
-    ivyPattern("${baseDir.canonicalPath}/[organisation]/[revision]/intellij.plugin.[module].ivy.xml")
-    ivyPattern("${baseDir.canonicalPath}/[organisation]/[revision]/plugins-[module].ivy.xml")
-    artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/[module]/lib/[artifact](-[classifier]).jar")
-    artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/intellij/plugins/[module]/lib/[artifact](-[classifier]).jar")
-    artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/plugins-[module]/[module]/lib/[artifact](-[classifier]).jar")
-    artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/[module]/[artifact].jar")
-    artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/[module]/[artifact](-[revision])(-[classifier]).jar")
-    artifactPattern("${baseDir.canonicalPath}/[organisation]/[revision]/sources/[artifact]-[revision]-[classifier].[ext]")
+    artifactPattern("${baseDir.canonicalPath}/[organisation]/[module]/[revision]/artifacts/lib/[artifact](-[classifier]).[ext]")
+    artifactPattern("${baseDir.canonicalPath}/[organisation]/[module]/[revision]/artifacts/[artifact](-[classifier]).[ext]")
+    artifactPattern("${baseDir.canonicalPath}/[organisation]/${project.ideModuleName()}/[revision]/artifacts/[artifact](-[classifier]).[ext]")
 
     metadataSources {
         ivyDescriptor()
     }
 }
 
-fun Project.intellijDep(module: String = "intellij") = "kotlin.build:$module:${rootProject.extra["versions.intellijSdk"]}"
+fun Project.intellijDep(module: String? = null) = "kotlin.build:${module ?: ideModuleName()}:${ideModuleVersion()}"
 
 fun Project.intellijCoreDep() = intellijDep("intellij-core")
 

@@ -74,11 +74,12 @@ repositories {
 
 val intellij by configurations.creating
 val intellijUltimate by configurations.creating
+val androidStudio by configurations.creating
 val sources by configurations.creating
-val `jps-standalone` by configurations.creating
-val `jps-build-test` by configurations.creating
-val `intellij-core` by configurations.creating
-val `plugins-NodeJS` by configurations.creating
+val jpsStandalone by configurations.creating
+val jpsBuildTest by configurations.creating
+val intellijCore by configurations.creating
+val nodeJS by configurations.creating
 
 /**
  * Special repository for annotations.jar required for idea runtime only.
@@ -90,12 +91,11 @@ val intellijRuntimeAnnotations = "intellij-runtime-annotations"
 val customDepsRepoDir = File(rootProject.rootDir, "../dependencies/repo")
 val customDepsOrg: String by rootProject.extra
 val customDepsRevision = intellijVersion
-val customDepsRepoModulesDir = File(customDepsRepoDir, "$customDepsOrg/$customDepsRevision")
-val repoDir = customDepsRepoModulesDir
+val repoDir = File(customDepsRepoDir, customDepsOrg)
 
 dependencies {
     if (androidStudioRelease != null) {
-        intellij("google:android-studio-ide:$androidStudioBuild")
+        androidStudio("google:android-studio-ide:$androidStudioBuild")
     } else {
         if (installIntellijCommunity) {
             intellij("com.jetbrains.intellij.idea:ideaIC:$intellijVersion")
@@ -110,67 +110,24 @@ dependencies {
     }
 
     sources("com.jetbrains.intellij.idea:ideaIC:$intellijVersion:sources@jar")
-    `jps-standalone`("com.jetbrains.intellij.idea:jps-standalone:$intellijVersion")
-    `jps-build-test`("com.jetbrains.intellij.idea:jps-build-test:$intellijVersion")
-    `intellij-core`("com.jetbrains.intellij.idea:intellij-core:$intellijVersion")
+    jpsStandalone("com.jetbrains.intellij.idea:jps-standalone:$intellijVersion")
+    jpsBuildTest("com.jetbrains.intellij.idea:jps-build-test:$intellijVersion")
+    intellijCore("com.jetbrains.intellij.idea:intellij-core:$intellijVersion")
     if (intellijUltimateEnabled) {
-        `plugins-NodeJS`("com.jetbrains.plugins:NodeJS:${rootProject.extra["versions.idea.NodeJS"]}@zip")
+        nodeJS("com.jetbrains.plugins:NodeJS:${rootProject.extra["versions.idea.NodeJS"]}@zip")
     }
 }
 
-fun Task.configureExtractFromConfigurationTask(sourceConfig: Configuration,
-                                               pathRemap: (String) -> String = { it },
-                                               extractor: (Configuration) -> Any) {
-    dependsOn(sourceConfig)
-    inputs.files(sourceConfig)
-    val targetDir = File(repoDir, sourceConfig.name)
-    outputs.dirs(targetDir)
-    doFirst {
-        project.copy {
-            from(extractor(sourceConfig))
-            into(targetDir)
-            eachFile {
-                path = pathRemap(path)
-            }
-        }
-    }
-}
-
-fun removePathPrefix(path: String): String {
-    if (androidStudioRelease == null) return path
-    val slashes = if (studioOs == "mac") 2 else 1
-    var result = path
-    repeat(slashes) {
-        result = result.substringAfter('/')
-    }
-    return result
-}
-
-val unzipIntellijSdk by tasks.creating {
-    configureExtractFromConfigurationTask(intellij, pathRemap = { removePathPrefix(it) }) {
-        zipTree(it.singleFile).matching {
-            exclude("**/plugins/Kotlin/**")
-        }
-    }
-}
-
-val unzipIntellijUltimateSdk by tasks.creating {
-    configureExtractFromConfigurationTask(intellijUltimate) {
-        zipTree(it.singleFile).matching {
-            exclude("plugins/Kotlin/**")
-        }
-    }
-}
-
-val unzipIntellijCore by tasks.creating { configureExtractFromConfigurationTask(`intellij-core`) { zipTree(it.singleFile) } }
+val makeIntellijCore = buildIvyRepositoryTask(intellijCore, customDepsOrg, customDepsRepoDir)
 
 val makeIntellijAnnotations by tasks.creating(Copy::class.java) {
-    dependsOn(unzipIntellijCore)
-    from(repoDir.resolve(`intellij-core`.name).resolve("annotations.jar"))
+    dependsOn(makeIntellijCore)
+    from(repoDir
+             .resolve("intellij-core")
+             .resolve("artifacts")
+             .resolve("annotations.jar"))
     into(repoDir.resolve(intellijRuntimeAnnotations))
 }
-
-val unzipJpsStandalone by tasks.creating { configureExtractFromConfigurationTask(`jps-standalone`) { zipTree(it.singleFile) } }
 
 val mergeSources by tasks.creating(Jar::class.java) {
     dependsOn(sources)
@@ -181,14 +138,122 @@ val mergeSources by tasks.creating(Jar::class.java) {
     version = intellijVersion
 }
 
-val copyJpsBuildTest by tasks.creating { configureExtractFromConfigurationTask(`jps-build-test`) { it.singleFile } }
+val sourcesFile = mergeSources.outputs.files.singleFile
 
-val unzipNodeJSPlugin by tasks.creating { configureExtractFromConfigurationTask(`plugins-NodeJS`) { zipTree(it.singleFile) } }
+val makePlatform = if (androidStudioBuild != null) {
+    buildIvyRepositoryTask(androidStudio, customDepsOrg, customDepsRepoDir)
+} else {
+    val task = if (installIntellijUltimate) {
+        buildIvyRepositoryTask(intellijUltimate, customDepsOrg, customDepsRepoDir, sourcesFile)
+    } else {
+        buildIvyRepositoryTask(intellij, customDepsOrg, customDepsRepoDir, sourcesFile)
+    }
+
+    task.configure {
+        dependsOn(mergeSources)
+    }
+
+    task
+}
+
+val build by tasks.creating {
+    dependsOn(
+        makeIntellijCore,
+        makePlatform,
+        buildIvyRepositoryTask(jpsStandalone, customDepsOrg, customDepsRepoDir, sourcesFile),
+        buildIvyRepositoryTask(jpsBuildTest, customDepsOrg, customDepsRepoDir, sourcesFile)
+    )
+
+    if (installIntellijUltimate) {
+        dependsOn(
+            buildIvyRepositoryTask(nodeJS, customDepsOrg, customDepsRepoDir, sourcesFile)
+        )
+    }
+}
+
+fun buildIvyRepositoryTask(
+    configuration: Configuration,
+    organization: String,
+    repoDirectory: File,
+    sources: File? = null
+) = tasks.register("buildIvyRepositoryFor${configuration.name.capitalize()}") {
+
+    fun ResolvedArtifact.moduleDirectory(): File =
+        File(repoDirectory, "$organization/${moduleVersion.id.name}/${moduleVersion.id.version}")
+
+    dependsOn(configuration)
+    inputs.files(configuration)
+
+    outputs.upToDateWhen {
+        configuration.resolvedConfiguration.resolvedArtifacts.single()
+            .let { it.moduleDirectory() }
+            .exists()
+    }
+
+    doFirst {
+        configuration.resolvedConfiguration.resolvedArtifacts.single().run {
+            val moduleName = moduleVersion.id.name
+            val moduleDirectory = moduleDirectory()
+            val artifactsDirectory = File(moduleDirectory(), "artifacts")
+            delete(moduleDirectory)
+
+            copy {
+                from(zipTree(file).matching {
+                    exclude("**/plugins/Kotlin/**")
+                })
+
+                into(artifactsDirectory)
+
+                eachFile {
+                    // Plugins in jetbrains repository are packed in toplevel directory
+                    path = path.substringAfter("$moduleName/", path)
+                    // In AS there is two directories on top level (Android Studio X.X/Contents/), cut them of
+                    path = path.substringAfter("Contents/", path)
+                }
+
+                includeEmptyDirs = false
+            }
+
+            writeIvyXml(
+                organization,
+                moduleVersion.id.name,
+                moduleVersion.id.version,
+                moduleVersion.id.name,
+                artifactsDirectory,
+                File(artifactsDirectory, "lib"),
+                File(moduleDirectory, "ivy"),
+                *listOfNotNull(sources).toTypedArray()
+            )
+
+            val pluginsDirectory = File(artifactsDirectory, "plugins")
+            if (pluginsDirectory.exists()) {
+                file(File(artifactsDirectory, "plugins"))
+                    .listFiles { file: File -> file.isDirectory }
+                    .forEach {
+                        writeIvyXml(
+                            organization,
+                            it.name,
+                            moduleVersion.id.version,
+                            it.name,
+                            artifactsDirectory,
+                            File(it, "lib"),
+                            File(moduleDirectory, "ivy"),
+                            *listOfNotNull(sources).toTypedArray()
+                        )
+                    }
+            }
+        }
+    }
+}
 
 fun writeIvyXml(
+    organization: String,
     moduleName: String,
+    version: String,
     fileName: String,
     baseDir: File,
+    artifactDir: File,
+    targetDir: File,
     vararg sourcesJar: File,
     allowAnnotations: Boolean = false
 ) {
@@ -198,116 +263,36 @@ fun writeIvyXml(
                 && !jar.name.startsWith("kotlin-")
                 && (allowAnnotations || jar.name != "annotations.jar") // see comments for [intellijAnnotations] above
 
-    with(IvyDescriptorFileGenerator(DefaultIvyPublicationIdentity(customDepsOrg, moduleName, intellijVersion))) {
+    with(IvyDescriptorFileGenerator(DefaultIvyPublicationIdentity(organization, moduleName, version))) {
         addConfiguration(DefaultIvyConfiguration("default"))
         addConfiguration(DefaultIvyConfiguration("sources"))
-        baseDir.listFiles()?.forEach { jarFile ->
+        artifactDir.listFiles()?.forEach { jarFile ->
             if (shouldIncludeIntellijJar(jarFile)) {
+                val relativeName = jarFile.toRelativeString(baseDir).removeSuffix(".jar")
                 addArtifact(
-                    FileBasedIvyArtifact(jarFile, DefaultIvyPublicationIdentity(customDepsOrg, jarFile.nameWithoutExtension, intellijVersion)).also {
+                    FileBasedIvyArtifact(
+                        jarFile,
+                        DefaultIvyPublicationIdentity(organization, relativeName, version)
+                    ).also {
                         it.conf = "default"
                     }
                 )
             }
         }
+
         sourcesJar.forEach {
             val sourcesArtifactName = it.name.substringBeforeLast("-").substringBeforeLast("-")
             addArtifact(
-                FileBasedIvyArtifact(it, DefaultIvyPublicationIdentity(customDepsOrg, sourcesArtifactName, intellijVersion)).also { artifact ->
+                FileBasedIvyArtifact(
+                    it,
+                    DefaultIvyPublicationIdentity(organization, sourcesArtifactName, version)
+                ).also { artifact ->
                     artifact.conf = "sources"
                     artifact.classifier = "sources"
                 }
             )
         }
-        writeTo(File(customDepsRepoModulesDir, "$fileName.ivy.xml"))
+
+        writeTo(File(targetDir, "$fileName.ivy.xml"))
     }
-}
-
-val prepareIvyXmls by tasks.creating {
-    dependsOn(unzipIntellijCore, makeIntellijAnnotations, unzipJpsStandalone, mergeSources, copyJpsBuildTest)
-
-    val intellijSdkDir = File(repoDir, intellij.name)
-    val intellijUltimateSdkDir = File(repoDir, intellijUltimate.name)
-
-    if (installIntellijCommunity) {
-        dependsOn(unzipIntellijSdk)
-        inputs.dir(intellijSdkDir)
-        outputs.file(File(repoDir, "${intellij.name}.ivy.xml"))
-    }
-
-    if (installIntellijUltimate) {
-        dependsOn(unzipIntellijUltimateSdk)
-        inputs.dir(intellijUltimateSdkDir)
-        outputs.file(File(repoDir, "${intellijUltimate.name}.ivy.xml"))
-    }
-
-    val flatDeps = listOf(`intellij-core`, `jps-standalone`, `jps-build-test`)
-    flatDeps.forEach {
-        inputs.dir(File(repoDir, it.name))
-        outputs.file(File(repoDir, "${it.name}.ivy.xml"))
-    }
-    inputs.dir(File(repoDir, sources.name))
-
-    if (intellijUltimateEnabled) {
-        dependsOn(unzipNodeJSPlugin)
-        inputs.dir(File(repoDir, `plugins-NodeJS`.name))
-        outputs.file(File(repoDir, "${`plugins-NodeJS`.name}.ivy.xml"))
-    }
-
-    doFirst {
-        val sources = File(repoDir, sources.name).listFiles()
-
-        if (installIntellijCommunity) {
-            val libDir = File(intellijSdkDir, "lib")
-            writeIvyXml(
-                intellij.name,
-                intellij.name,
-                libDir,
-                *sources
-            )
-
-            File(intellijSdkDir, "plugins").listFiles { file: File -> file.isDirectory }.forEach {
-                writeIvyXml(it.name, "intellij.plugin.${it.name}", File(it, "lib"), *sources)
-            }
-        }
-
-        if (installIntellijUltimate) {
-            val libDir = File(intellijUltimateSdkDir, "lib")
-            writeIvyXml(
-                intellij.name, // important! the module name should be "intellij"
-                intellijUltimate.name,
-                libDir,
-                *sources
-            )
-
-            File(intellijUltimateSdkDir, "plugins").listFiles { it: File -> it.isDirectory }.forEach {
-                writeIvyXml(it.name, "intellijUltimate.plugin.${it.name}", File(it, "lib"), *sources)
-            }
-        }
-
-        flatDeps.forEach {
-            writeIvyXml(it.name, it.name, File(repoDir, it.name), *sources)
-        }
-
-        if (intellijUltimateEnabled) {
-            val nodeJsBaseDir = "${`plugins-NodeJS`.name}/NodeJS/lib"
-            writeIvyXml("NodeJS", `plugins-NodeJS`.name, File(repoDir, nodeJsBaseDir), *sources)
-        }
-
-        val intellijAnnotationsDir = File(repoDir, intellijRuntimeAnnotations)
-        writeIvyXml(
-            intellijRuntimeAnnotations, intellijRuntimeAnnotations,
-            intellijAnnotationsDir, *sources,
-            allowAnnotations = true
-        )
-    }
-}
-
-val build by tasks.creating {
-    dependsOn(prepareIvyXmls)
-}
-
-val clean by tasks.creating(Delete::class) {
-    delete(customDepsRepoModulesDir)
-    delete(buildDir)
 }
