@@ -65,7 +65,7 @@ open class PodspecTask: DefaultTask() {
             |            :script => <<-SCRIPT
             |                set -ev
             |                REPO_ROOT=`realpath "${'$'}PODS_TARGET_SRCROOT"`
-            |                ${'$'}REPO_ROOT/gradlew -p "${'$'}REPO_ROOT" syncFramework -i \
+            |                ${'$'}REPO_ROOT/gradlew -p "${'$'}REPO_ROOT" syncFramework \
             |                    -P${KotlinCocoapodsPlugin.TARGET_PROPERTY}=${'$'}KOTLIN_TARGET \
             |                    -P${KotlinCocoapodsPlugin.CONFIGURATION_PROPERTY}=${'$'}CONFIGURATION \
             |                    -P${KotlinCocoapodsPlugin.CFLAGS_PROPERTY}="${'$'}OTHER_CFLAGS" \
