@@ -162,7 +162,7 @@ public inline class UByte @PublishedApi internal constructor(@PublishedApi inter
      * Converts this [UByte] value to [Byte].
      *
      * If this value is less than or equals to [Byte.MAX_VALUE], the resulting `Byte` value represents
-     * the same numerical value as this `UByte`. Otherwise, it is negative.
+     * the same numerical value as this `UByte`. Otherwise the result is negative.
      *
      * The resulting `Byte` value has the same binary representation as this `UByte` value.
      */
@@ -174,7 +174,7 @@ public inline class UByte @PublishedApi internal constructor(@PublishedApi inter
      * The resulting `Short` value represents the same numerical value as this `UByte`.
      *
      * The least significant 8 bits of the resulting `Short` value are the same as the binary representation of this `UByte` value,
-     * whereas 8 most significant bits are filled with zeros.
+     * whereas the most significant 8 bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toShort(): Short = data.toShort() and 0xFF
@@ -184,7 +184,7 @@ public inline class UByte @PublishedApi internal constructor(@PublishedApi inter
      * The resulting `Int` value represents the same numerical value as this `UByte`.
      *
      * The least significant 8 bits of the resulting `Int` value are the same as the binary representation of this `UByte` value,
-     * whereas 24 most significant bits are filled with zeros.
+     * whereas the most significant 24 bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toInt(): Int = data.toInt() and 0xFF
@@ -194,7 +194,7 @@ public inline class UByte @PublishedApi internal constructor(@PublishedApi inter
      * The resulting `Long` value represents the same numerical value as this `UByte`.
      *
      * The least significant 8 bits of the resulting `Long` value are the same as the binary representation of this `UByte` value,
-     * whereas 56 most significant bits are filled with zeros.
+     * whereas the most significant 56 bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toLong(): Long = data.toLong() and 0xFF
@@ -208,7 +208,7 @@ public inline class UByte @PublishedApi internal constructor(@PublishedApi inter
      * The resulting `UShort` value represents the same numerical value as this `UByte`.
      *
      * The least significant 8 bits of the resulting `UShort` value are the same as the binary representation of this `UByte` value,
-     * whereas 8 most significant bits are filled with zeros.
+     * whereas the most significant 8 bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toUShort(): UShort = UShort(data.toShort() and 0xFF)
@@ -218,7 +218,7 @@ public inline class UByte @PublishedApi internal constructor(@PublishedApi inter
      * The resulting `UInt` value represents the same numerical value as this `UByte`.
      *
      * The least significant 8 bits of the resulting `UInt` value are the same as the binary representation of this `UByte` value,
-     * whereas 24 most significant bits are filled with zeros.
+     * whereas the most significant 24 bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toUInt(): UInt = UInt(data.toInt() and 0xFF)
@@ -228,7 +228,7 @@ public inline class UByte @PublishedApi internal constructor(@PublishedApi inter
      * The resulting `ULong` value represents the same numerical value as this `UByte`.
      *
      * The least significant 8 bits of the resulting `ULong` value are the same as the binary representation of this `UByte` value,
-     * whereas 56 most significant bits are filled with zeros.
+     * whereas the most significant 56 bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toULong(): ULong = ULong(data.toLong() and 0xFF)
@@ -269,7 +269,7 @@ public inline fun Byte.toUByte(): UByte = UByte(this)
  * If this value is positive and less than or equals to [UByte.MAX_VALUE], the resulting `UByte` value represents
  * the same numerical value as this `Short`.
  *
- * The resulting `UByte` value is represented by 8 least significant bits of this `Short` value.
+ * The resulting `UByte` value is represented by the least significant 8 bits of this `Short` value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -281,7 +281,7 @@ public inline fun Short.toUByte(): UByte = UByte(this.toByte())
  * If this value is positive and less than or equals to [UByte.MAX_VALUE], the resulting `UByte` value represents
  * the same numerical value as this `Int`.
  *
- * The resulting `UByte` value is represented by 8 least significant bits of this `Int` value.
+ * The resulting `UByte` value is represented by the least significant 8 bits of this `Int` value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -293,7 +293,7 @@ public inline fun Int.toUByte(): UByte = UByte(this.toByte())
  * If this value is positive and less than or equals to [UByte.MAX_VALUE], the resulting `UByte` value represents
  * the same numerical value as this `Long`.
  *
- * The resulting `UByte` value is represented by 8 least significant bits of this `Long` value.
+ * The resulting `UByte` value is represented by the least significant 8 bits of this `Long` value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes

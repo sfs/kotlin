@@ -199,10 +199,8 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
         out.println()
     }
 
-    private val lsb = "least significant bits"
-    private val msb = "most significant bits"
-
     private fun lsb(count: Int) = "least significant $count bits"
+    private fun msb(count: Int) = "most significant $count bits"
 
     private fun generateMemberConversions() {
         for (otherType in UnsignedType.values()) {
@@ -214,12 +212,12 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
                     out.println("     * If this value is less than or equals to [$signed.MAX_VALUE], the resulting `$signed` value represents")
                     out.println("     * the same numerical value as this `$className`.")
                     out.println("     *")
-                    out.println("     * The resulting `$signed` value is represented by ${otherType.bitSize} $lsb of this `$className` value.")
+                    out.println("     * The resulting `$signed` value is represented by the ${lsb(otherType.bitSize)} of this `$className` value.")
                     out.println("     * Note that the resulting `$signed` value may be negative.")
                 }
                 otherType == type -> {
                     out.println("     * If this value is less than or equals to [$signed.MAX_VALUE], the resulting `$signed` value represents")
-                    out.println("     * the same numerical value as this `$className`. Otherwise, it is negative.")
+                    out.println("     * the same numerical value as this `$className`. Otherwise the result is negative.")
                     out.println("     *")
                     out.println("     * The resulting `$signed` value has the same binary representation as this `$className` value.")
                 }
@@ -227,7 +225,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
                     out.println("     * The resulting `$signed` value represents the same numerical value as this `$className`.")
                     out.println("     *")
                     out.println("     * The ${lsb(type.bitSize)} of the resulting `$signed` value are the same as the binary representation of this `$className` value,")
-                    out.println("     * whereas ${otherType.bitSize - type.bitSize} $msb are filled with zeros.")
+                    out.println("     * whereas the ${msb(otherType.bitSize - type.bitSize)} are filled with zeros.")
                 }
             }
             out.println("     */")
@@ -254,13 +252,13 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
                         out.println("     * If this value is less than or equals to [$name.MAX_VALUE], the resulting `$name` value represents")
                         out.println("     * the same numerical value as this `$className`.")
                         out.println("     *")
-                        out.println("     * The resulting `$name` value is represented by ${otherType.bitSize} $lsb of this `$className` value.")
+                        out.println("     * The resulting `$name` value is represented by the ${lsb(otherType.bitSize)} of this `$className` value.")
                     }
                     else -> {
                         out.println("     * The resulting `$name` value represents the same numerical value as this `$className`.")
                         out.println("     *")
                         out.println("     * The ${lsb(type.bitSize)} of the resulting `$name` value are the same as the binary representation of this `$className` value,")
-                        out.println("     * whereas ${otherType.bitSize - type.bitSize} $msb are filled with zeros.")
+                        out.println("     * whereas the ${msb(otherType.bitSize - type.bitSize)} are filled with zeros.")
                     }
                 }
                 out.println("     */")
@@ -314,7 +312,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
                     out.println(" * If this value is positive, the resulting `$className` value represents the same numerical value as this `$otherSigned`.")
                     out.println(" *")
                     out.println(" * The ${lsb(otherType.bitSize)} of the resulting `$className` value are the same as the binary representation of this `$otherSigned` value,")
-                    out.println(" * whereas ${type.bitSize - otherType.bitSize} $msb are filled with sign bit.")
+                    out.println(" * whereas the ${msb(type.bitSize - otherType.bitSize)} are filled with sign bit.")
                 }
                 otherType == type -> {
                     out.println(" * If this value is positive, the resulting `$className` value represents the same numerical value as this `$otherSigned`.")
@@ -325,7 +323,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
                     out.println(" * If this value is positive and less than or equals to [$className.MAX_VALUE], the resulting `$className` value represents")
                     out.println(" * the same numerical value as this `$otherSigned`.")
                     out.println(" *")
-                    out.println(" * The resulting `$className` value is represented by ${type.bitSize} $lsb of this `$otherSigned` value.")
+                    out.println(" * The resulting `$className` value is represented by the ${lsb(type.bitSize)} of this `$otherSigned` value.")
                 }
             }
             out.println(" */")
