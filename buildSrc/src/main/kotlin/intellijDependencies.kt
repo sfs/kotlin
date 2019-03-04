@@ -60,6 +60,10 @@ fun Project.intellijDep(module: String? = null) = "kotlin.build:${module ?: ideM
 
 fun Project.intellijCoreDep() = "kotlin.build:intellij-core:${rootProject.extra["versions.intellijSdk"]}"
 
+fun Project.jpsStandalone() = "kotlin.build:jps-standalone:${rootProject.extra["versions.intellijSdk"]}"
+
+fun Project.jpsBuildTest() = "kotlin.build:jps-build-test:${rootProject.extra["versions.intellijSdk"]}"
+
 /**
  * Runtime version of annotations that are already in Kotlin stdlib (historically Kotlin has older version of this one).
  *
@@ -75,7 +79,7 @@ fun Project.intellijRuntimeAnnotations() = "kotlin.build:intellij-runtime-annota
 
 fun Project.intellijPluginDep(plugin: String) = intellijDep(plugin)
 
-fun Project.intellijUltimateDep() = intellijDep("intellij")
+fun Project.intellijUltimateDep() = intellijDep("ideaIU")
 
 fun Project.intellijUltimatePluginDep(plugin: String) = intellijDep(plugin)
 
@@ -103,7 +107,7 @@ object IntellijRootUtils {
     }
 
     fun getIntellijRootDir(project: Project): File = with (project.rootProject) {
-        return File(getRepositoryRootDir(this), "intellij${if (isIntellijCommunityAvailable()) "" else "Ultimate"}")
+        return File(getRepositoryRootDir(this), "idea${if (isIntellijCommunityAvailable()) "IC" else "IU"}")
     }
 }
 
@@ -121,7 +125,7 @@ fun Project.intellijRootDir() = IntellijRootUtils.getIntellijRootDir(project)
 
 fun Project.intellijUltimateRootDir() =
         if (isIntellijUltimateSdkAvailable())
-            File(intellijRepoDir(), "kotlin.build/${rootProject.extra["versions.intellijSdk"]}/intellijUltimate")
+            File(intellijRepoDir(), "kotlin.build/ideaIU/${rootProject.extra["versions.intellijSdk"]}")
         else
             throw GradleException("intellij ultimate SDK is not available")
 
