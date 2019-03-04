@@ -165,49 +165,65 @@ public inline class UInt @PublishedApi internal constructor(@PublishedApi intern
     public inline fun inv(): UInt = UInt(data.inv())
 
     /**
-     * Converts this value to [Byte].
+     * Converts this [UInt] value to [Byte].
      *
-     * The resulting `Byte` value is represented by 8 least significant bits of this [UInt] value.
+     * If this value is less than or equals to [Byte.MAX_VALUE], the resulting `Byte` value represents
+     * the same numerical value as this `UInt`.
+     *
+     * The resulting `Byte` value is represented by 8 least significant bits of this `UInt` value.
      * Note that the resulting `Byte` value may be negative.
      */
     @kotlin.internal.InlineOnly
     public inline fun toByte(): Byte = data.toByte()
     /**
-     * Converts this value to [Short].
+     * Converts this [UInt] value to [Short].
      *
-     * The resulting `Short` value is represented by 16 least significant bits of this [UInt] value.
+     * If this value is less than or equals to [Short.MAX_VALUE], the resulting `Short` value represents
+     * the same numerical value as this `UInt`.
+     *
+     * The resulting `Short` value is represented by 16 least significant bits of this `UInt` value.
      * Note that the resulting `Short` value may be negative.
      */
     @kotlin.internal.InlineOnly
     public inline fun toShort(): Short = data.toShort()
     /**
-     * Converts this value to [Int].
+     * Converts this [UInt] value to [Int].
      *
-     * The resulting `Int` value has the same binary representation as this [UInt] value.
-     * Note that the resulting `Int` value is negative if this `UInt` value is greater than [Int.MAX_VALUE].
+     * If this value is less than or equals to [Int.MAX_VALUE], the resulting `Int` value represents
+     * the same numerical value as this `UInt`. Otherwise, it is negative.
+     *
+     * The resulting `Int` value has the same binary representation as this `UInt` value.
      */
     @kotlin.internal.InlineOnly
     public inline fun toInt(): Int = data
     /**
-     * Converts this value to [Long].
+     * Converts this [UInt] value to [Long].
      *
-     * 32 least significant bits of the resulting `Long` value has the same binary representation as this [UInt] value,
+     * The resulting `Long` value represents the same numerical value as this `UInt`.
+     *
+     * The least significant 32 bits of the resulting `Long` value are the same as the binary representation of this `UInt` value,
      * whereas 32 most significant bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toLong(): Long = data.toLong() and 0xFFFF_FFFF
 
     /**
-     * Converts this value to [UByte].
+     * Converts this [UInt] value to [UByte].
      *
-     * The resulting `UByte` value is represented by 8 least significant bits of this [UInt] value.
+     * If this value is less than or equals to [UByte.MAX_VALUE], the resulting `UByte` value represents
+     * the same numerical value as this `UInt`.
+     *
+     * The resulting `UByte` value is represented by 8 least significant bits of this `UInt` value.
      */
     @kotlin.internal.InlineOnly
     public inline fun toUByte(): UByte = data.toUByte()
     /**
-     * Converts this value to [UShort].
+     * Converts this [UInt] value to [UShort].
      *
-     * The resulting `UShort` value is represented by 16 least significant bits of this [UInt] value.
+     * If this value is less than or equals to [UShort.MAX_VALUE], the resulting `UShort` value represents
+     * the same numerical value as this `UInt`.
+     *
+     * The resulting `UShort` value is represented by 16 least significant bits of this `UInt` value.
      */
     @kotlin.internal.InlineOnly
     public inline fun toUShort(): UShort = data.toUShort()
@@ -215,27 +231,29 @@ public inline class UInt @PublishedApi internal constructor(@PublishedApi intern
     @kotlin.internal.InlineOnly
     public inline fun toUInt(): UInt = this
     /**
-     * Converts this value to [ULong].
+     * Converts this [UInt] value to [ULong].
      *
-     * 32 most significant bits of the resulting `ULong` value has the same binary representation as this [UInt] value,
+     * The resulting `ULong` value represents the same numerical value as this `UInt`.
+     *
+     * The least significant 32 bits of the resulting `ULong` value are the same as the binary representation of this `UInt` value,
      * whereas 32 most significant bits are filled with zeros.
      */
     @kotlin.internal.InlineOnly
     public inline fun toULong(): ULong = ULong(data.toLong() and 0xFFFF_FFFF)
 
     /**
-     * Converts this value to [Float].
+     * Converts this [UInt] value to [Float].
      *
-     * The resulting value is the closest `Float` to this [UInt] value.
-     * In case when this `UInt` value is exactly between two `Float`s, the smaller one is selected.
+     * The resulting value is the closest `Float` to this `UInt` value.
+     * In case when this `UInt` value is exactly between two `Float`s,
+     * the one with zero at least significant bit of mantissa is selected.
      */
     @kotlin.internal.InlineOnly
     public inline fun toFloat(): Float = this.toDouble().toFloat()
     /**
-     * Converts this value to [Double].
+     * Converts this [UInt] value to [Double].
      *
-     * The resulting value is the closest `Double` to this [UInt] value.
-     * In case when this `UInt` value is exactly between two `Double`s, the smaller one is selected.
+     * The resulting `Double` value represents the same numerical value as this `UInt`.
      */
     @kotlin.internal.InlineOnly
     public inline fun toDouble(): Double = uintToDouble(data)
@@ -245,9 +263,11 @@ public inline class UInt @PublishedApi internal constructor(@PublishedApi intern
 }
 
 /**
- * Converts this value to [UInt].
+ * Converts this [Byte] value to [UInt].
  *
- * 8 least significant bits of the resulting `UInt` value has the same binary representation as this [Byte] value,
+ * If this value is positive, the resulting `UInt` value represents the same numerical value as this `Byte`.
+ *
+ * The least significant 8 bits of the resulting `UInt` value are the same as the binary representation of this `Byte` value,
  * whereas 24 most significant bits are filled with sign bit.
  */
 @SinceKotlin("1.3")
@@ -255,9 +275,11 @@ public inline class UInt @PublishedApi internal constructor(@PublishedApi intern
 @kotlin.internal.InlineOnly
 public inline fun Byte.toUInt(): UInt = UInt(this.toInt())
 /**
- * Converts this value to [UInt].
+ * Converts this [Short] value to [UInt].
  *
- * 16 least significant bits of the resulting `UInt` value has the same binary representation as this [Short] value,
+ * If this value is positive, the resulting `UInt` value represents the same numerical value as this `Short`.
+ *
+ * The least significant 16 bits of the resulting `UInt` value are the same as the binary representation of this `Short` value,
  * whereas 16 most significant bits are filled with sign bit.
  */
 @SinceKotlin("1.3")
@@ -265,19 +287,23 @@ public inline fun Byte.toUInt(): UInt = UInt(this.toInt())
 @kotlin.internal.InlineOnly
 public inline fun Short.toUInt(): UInt = UInt(this.toInt())
 /**
- * Converts this value to [UInt].
+ * Converts this [Int] value to [UInt].
  *
- * The resulting `UInt` value has the same binary representation as this [Int] value.
- * Note that the resulting `UInt` value is greater than [Int.MAX_VALUE] if this `Int` value is negative.
+ * If this value is positive, the resulting `UInt` value represents the same numerical value as this `Int`.
+ *
+ * The resulting `UInt` value has the same binary representation as this `Int` value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Int.toUInt(): UInt = UInt(this)
 /**
- * Converts this value to [UInt].
+ * Converts this [Long] value to [UInt].
  *
- * The resulting `UInt` value is represented by 32 least significant bits of this [Long] value.
+ * If this value is positive and less than or equals to [UInt.MAX_VALUE], the resulting `UInt` value represents
+ * the same numerical value as this `Long`.
+ *
+ * The resulting `UInt` value is represented by 32 least significant bits of this `Long` value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -285,16 +311,16 @@ public inline fun Int.toUInt(): UInt = UInt(this)
 public inline fun Long.toUInt(): UInt = UInt(this.toInt())
 
 /**
- * Converts this value to [UInt], rounding down.
- * Returns zero if this [Float] value is negative or NaN, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
+ * Converts this [Float] value to [UInt]. The factional part, if any, is rounded down.
+ * Returns zero if this `Float` value is negative or NaN, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Float.toUInt(): UInt = doubleToUInt(this.toDouble())
 /**
- * Converts this value to [UInt], rounding down.
- * Returns zero if this [Double] value is negative or NaN, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
+ * Converts this [Double] value to [UInt]. The factional part, if any, is rounded down.
+ * Returns zero if this `Double` value is negative or NaN, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
