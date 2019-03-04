@@ -122,11 +122,27 @@ val makeIntellijCore = buildIvyRepositoryTask(intellijCore, customDepsOrg, custo
 
 val makeIntellijAnnotations by tasks.creating(Copy::class.java) {
     dependsOn(makeIntellijCore)
-    from(repoDir
-             .resolve("intellij-core")
-             .resolve("artifacts")
-             .resolve("annotations.jar"))
-    into(repoDir.resolve(intellijRuntimeAnnotations))
+
+    from(repoDir.resolve("intellij-core/$intellijVersion/artifacts/annotations.jar"))
+
+    val targetDir = File(repoDir, "$intellijRuntimeAnnotations/$intellijVersion")
+    into(targetDir)
+
+    val ivyFile = File(targetDir, "$intellijRuntimeAnnotations.ivy.xml")
+    outputs.files(ivyFile)
+
+    doLast {
+        writeIvyXml(
+            customDepsOrg,
+            intellijRuntimeAnnotations,
+            intellijVersion,
+            intellijRuntimeAnnotations,
+            targetDir,
+            targetDir,
+            targetDir,
+            allowAnnotations = true
+        )
+    }
 }
 
 val mergeSources by tasks.creating(Jar::class.java) {
@@ -161,7 +177,8 @@ val build by tasks.creating {
         makeIntellijCore,
         makePlatform,
         buildIvyRepositoryTask(jpsStandalone, customDepsOrg, customDepsRepoDir, sourcesFile),
-        buildIvyRepositoryTask(jpsBuildTest, customDepsOrg, customDepsRepoDir, sourcesFile)
+        buildIvyRepositoryTask(jpsBuildTest, customDepsOrg, customDepsRepoDir, sourcesFile),
+        makeIntellijAnnotations
     )
 
     if (installIntellijUltimate) {

@@ -58,7 +58,7 @@ fun RepositoryHandler.intellijSdkRepo(project: Project): IvyArtifactRepository =
 
 fun Project.intellijDep(module: String? = null) = "kotlin.build:${module ?: ideModuleName()}:${ideModuleVersion()}"
 
-fun Project.intellijCoreDep() = intellijDep("intellij-core")
+fun Project.intellijCoreDep() = "kotlin.build:intellij-core:${rootProject.extra["versions.intellijSdk"]}"
 
 /**
  * Runtime version of annotations that are already in Kotlin stdlib (historically Kotlin has older version of this one).
@@ -71,7 +71,7 @@ fun Project.intellijCoreDep() = intellijDep("intellij-core")
  * So, we are excluding `annotaions.jar` from all other `kotlin.build` and using this one for runtime only
  * to avoid accidentally including `annotations.jar` by calling `intellijDep()`.
  */
-fun Project.intellijRuntimeAnnotations() = intellijDep("intellij-runtime-annotations")
+fun Project.intellijRuntimeAnnotations() = "kotlin.build:intellij-runtime-annotations:${rootProject.extra["versions.intellijSdk"]}"
 
 fun Project.intellijPluginDep(plugin: String) = intellijDep(plugin)
 
