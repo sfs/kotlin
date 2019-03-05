@@ -18,7 +18,10 @@
 
 package org.jetbrains.kotlin.idea.util
 
+import org.jetbrains.kotlin.builtins.getReturnTypeFromFunctionType
+import org.jetbrains.kotlin.builtins.isBuiltinFunctionalType
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
+import org.jetbrains.kotlin.builtins.replaceReturnType
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
@@ -98,7 +101,7 @@ fun KotlinType.isResolvableInScope(scope: LexicalScope?, checkTypeParameters: Bo
 
     val descriptor = constructor.declarationDescriptor
     if (descriptor == null || descriptor.name.isSpecial) return false
-    if (!checkTypeParameters && descriptor is TypeParameterDescriptor) return true
+    if (descriptor is TypeParameterDescriptor && (descriptor.isReified || !checkTypeParameters)) return true
 
     return scope != null && scope.findClassifier(descriptor.name, NoLookupLocation.FROM_IDE) == descriptor
 }
@@ -124,33 +127,57 @@ fun KotlinType.getResolvableApproximations(
 ): Sequence<KotlinType> {
     return (listOf(this) + TypeUtils.getAllSupertypes(this))
         .asSequence()
-        .filter { it.isResolvableInScope(scope, checkTypeParameters, allowIntersections) }
-        .mapNotNull mapArgs@{
-            val resolvableArgs = it.arguments.filterTo(SmartSet.create()) { typeProjection ->
-                typeProjection.type.isResolvableInScope(
-                    scope,
-                    checkTypeParameters
-                )
-            }
-            if (resolvableArgs.containsAll(it.arguments)) return@mapArgs it
-
-            val newArguments = (it.arguments zip it.constructor.parameters).map { pair ->
-                val (arg, param) = pair
-                when {
-                    arg in resolvableArgs -> arg
-
-                    arg.projectionKind == Variance.OUT_VARIANCE ||
-                            param.variance == Variance.OUT_VARIANCE -> TypeProjectionImpl(
-                        arg.projectionKind,
-                        arg.type.approximateWithResolvableType(scope, checkTypeParameters)
-                    )
-
-                    else -> return@mapArgs null
-                }
-            }
-
-            it.replace(newArguments)
+        .mapNotNull {
+            it.fixType(scope, checkTypeParameters, allowIntersections, isInnerTypeParameter = false)
         }
+}
+
+private fun KotlinType.fixType(
+    scope: LexicalScope?,
+    checkTypeParameters: Boolean,
+    allowIntersections: Boolean,
+    isInnerTypeParameter: Boolean
+): KotlinType? {
+    if (!isResolvableInScope(scope, checkTypeParameters, allowIntersections)) return null
+    if (arguments.isEmpty()) return this
+
+    val resolvableArgs = arguments.filterTo(SmartSet.create()) { typeProjection ->
+        typeProjection.type.isResolvableInScope(
+            scope,
+            checkTypeParameters
+        )
+    }
+
+    if (resolvableArgs.containsAll(arguments)) {
+        fun fixArguments(type: KotlinType): KotlinType? = type.replace(type.arguments.map {
+            it.type.fixType(scope, checkTypeParameters, allowIntersections, isInnerTypeParameter = true)?.asTypeProjection()
+                ?: if (isInnerTypeParameter) return null else type.replaceArgumentsWithStarProjections().arguments.first()
+        })
+
+        return if (isBuiltinFunctionalType) {
+            val type = getReturnTypeFromFunctionType()
+            replaceReturnType(fixArguments(type) ?: return null)
+        } else {
+            fixArguments(this)
+        }
+    }
+
+    val newArguments = (arguments zip constructor.parameters).map { pair ->
+        val (arg, param) = pair
+        when {
+            arg in resolvableArgs -> arg
+
+            arg.projectionKind == Variance.OUT_VARIANCE ||
+                    param.variance == Variance.OUT_VARIANCE -> TypeProjectionImpl(
+                arg.projectionKind,
+                arg.type.approximateWithResolvableType(scope, checkTypeParameters)
+            )
+
+            else -> return null
+        }
+    }
+
+    return replace(newArguments)
 }
 
 fun KotlinType.isAbstract(): Boolean {
