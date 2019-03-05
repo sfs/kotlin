@@ -45,11 +45,11 @@ fun RepositoryHandler.intellijSdkRepo(project: Project): IvyArtifactRepository =
     setUrl(baseDir)
 
     ivyPattern("${baseDir.canonicalPath}/[organisation]/[module]/[revision]/ivy/[module].ivy.xml")
-    ivyPattern("${baseDir.canonicalPath}/[organisation]/${project.ideModuleName()}/[revision]/ivy/[module].ivy.xml")
+    ivyPattern("${baseDir.canonicalPath}/[organisation]/${project.ideModuleName()}/[revision]/ivy/[module].ivy.xml") // bundled plugins
 
     artifactPattern("${baseDir.canonicalPath}/[organisation]/[module]/[revision]/artifacts/lib/[artifact](-[classifier]).[ext]")
     artifactPattern("${baseDir.canonicalPath}/[organisation]/[module]/[revision]/artifacts/[artifact](-[classifier]).[ext]")
-    artifactPattern("${baseDir.canonicalPath}/[organisation]/${project.ideModuleName()}/[revision]/artifacts/[artifact](-[classifier]).[ext]")
+    artifactPattern("${baseDir.canonicalPath}/[organisation]/${project.ideModuleName()}/[revision]/artifacts/plugins/[module]/lib/[artifact](-[classifier]).[ext]") // bundled plugins
 
     metadataSources {
         ivyDescriptor()

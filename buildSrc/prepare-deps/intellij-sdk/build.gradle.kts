@@ -236,7 +236,7 @@ fun buildIvyRepositoryTask(
                 moduleVersion.id.name,
                 moduleVersion.id.version,
                 moduleVersion.id.name,
-                artifactsDirectory,
+                File(artifactsDirectory, "lib"),
                 File(artifactsDirectory, "lib"),
                 File(moduleDirectory, "ivy"),
                 *listOfNotNull(sources).toTypedArray()
@@ -252,7 +252,7 @@ fun buildIvyRepositoryTask(
                             it.name,
                             moduleVersion.id.version,
                             it.name,
-                            artifactsDirectory,
+                            File(it, "lib"),
                             File(it, "lib"),
                             File(moduleDirectory, "ivy"),
                             *listOfNotNull(sources).toTypedArray()
