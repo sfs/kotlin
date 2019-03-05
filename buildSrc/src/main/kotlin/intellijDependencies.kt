@@ -64,6 +64,8 @@ fun Project.jpsStandalone() = "kotlin.build:jps-standalone:${rootProject.extra["
 
 fun Project.jpsBuildTest() = "kotlin.build:jps-build-test:${rootProject.extra["versions.intellijSdk"]}"
 
+fun Project.nodeJSPlugin() = "kotlin.build:NodeJS:${rootProject.extra["versions.idea.NodeJS"]}"
+
 /**
  * Runtime version of annotations that are already in Kotlin stdlib (historically Kotlin has older version of this one).
  *

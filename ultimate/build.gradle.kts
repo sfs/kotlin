@@ -43,7 +43,7 @@ dependencies {
     compileOnly(intellijCoreDep()) { includeJars("intellij-core") }
 
     if (intellijUltimateEnabled) {
-        compileOnly(intellijUltimatePluginDep("NodeJS"))
+        compileOnly(nodeJSPlugin())
         compileOnly(intellijUltimateDep()) { includeJars("trove4j", "openapi", "platform-api", "platform-impl", "java-api", "java-impl", "idea", "util", "jdom") }
         compileOnly(intellijUltimatePluginDep("CSS"))
         compileOnly(intellijUltimatePluginDep("DatabaseTools"))
@@ -106,6 +106,7 @@ dependencies {
     testRuntime(intellijPluginDep("smali"))
 
     if (intellijUltimateEnabled) {
+        testCompile(nodeJSPlugin())
         testCompile(intellijUltimatePluginDep("CSS"))
         testCompile(intellijUltimatePluginDep("DatabaseTools"))
         testCompile(intellijUltimatePluginDep("JavaEE"))
@@ -115,7 +116,6 @@ dependencies {
         testCompile(intellijUltimatePluginDep("uml"))
         testCompile(intellijUltimatePluginDep("JavaScriptLanguage"))
         testCompile(intellijUltimatePluginDep("JavaScriptDebugger"))
-        testCompile(intellijUltimatePluginDep("NodeJS"))
         testCompile(intellijUltimatePluginDep("properties"))
         testCompile(intellijUltimatePluginDep("java-i18n"))
         testCompile(intellijUltimatePluginDep("gradle"))
