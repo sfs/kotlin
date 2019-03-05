@@ -268,7 +268,7 @@ public inline class UInt @PublishedApi internal constructor(@PublishedApi intern
  * If this value is positive, the resulting `UInt` value represents the same numerical value as this `Byte`.
  *
  * The least significant 8 bits of the resulting `UInt` value are the same as the binary representation of this `Byte` value,
- * whereas the most significant 24 bits are filled with sign bit.
+ * whereas the most significant 24 bits are filled with the sign bit of this value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -280,7 +280,7 @@ public inline fun Byte.toUInt(): UInt = UInt(this.toInt())
  * If this value is positive, the resulting `UInt` value represents the same numerical value as this `Short`.
  *
  * The least significant 16 bits of the resulting `UInt` value are the same as the binary representation of this `Short` value,
- * whereas the most significant 16 bits are filled with sign bit.
+ * whereas the most significant 16 bits are filled with the sign bit of this value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -311,16 +311,20 @@ public inline fun Int.toUInt(): UInt = UInt(this)
 public inline fun Long.toUInt(): UInt = UInt(this.toInt())
 
 /**
- * Converts this [Float] value to [UInt]. The factional part, if any, is rounded down.
- * Returns zero if this `Float` value is negative or NaN, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
+ * Converts this [Float] value to [UInt].
+ *
+ * The fractional part, if any, is rounded down.
+ * Returns zero if this `Float` value is negative or `NaN`, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Float.toUInt(): UInt = doubleToUInt(this.toDouble())
 /**
- * Converts this [Double] value to [UInt]. The factional part, if any, is rounded down.
- * Returns zero if this `Double` value is negative or NaN, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
+ * Converts this [Double] value to [UInt].
+ *
+ * The fractional part, if any, is rounded down.
+ * Returns zero if this `Double` value is negative or `NaN`, [UInt.MAX_VALUE] if it's bigger than `UInt.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes

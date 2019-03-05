@@ -271,7 +271,7 @@ public inline class ULong @PublishedApi internal constructor(@PublishedApi inter
  * If this value is positive, the resulting `ULong` value represents the same numerical value as this `Byte`.
  *
  * The least significant 8 bits of the resulting `ULong` value are the same as the binary representation of this `Byte` value,
- * whereas the most significant 56 bits are filled with sign bit.
+ * whereas the most significant 56 bits are filled with the sign bit of this value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -283,7 +283,7 @@ public inline fun Byte.toULong(): ULong = ULong(this.toLong())
  * If this value is positive, the resulting `ULong` value represents the same numerical value as this `Short`.
  *
  * The least significant 16 bits of the resulting `ULong` value are the same as the binary representation of this `Short` value,
- * whereas the most significant 48 bits are filled with sign bit.
+ * whereas the most significant 48 bits are filled with the sign bit of this value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -295,7 +295,7 @@ public inline fun Short.toULong(): ULong = ULong(this.toLong())
  * If this value is positive, the resulting `ULong` value represents the same numerical value as this `Int`.
  *
  * The least significant 32 bits of the resulting `ULong` value are the same as the binary representation of this `Int` value,
- * whereas the most significant 32 bits are filled with sign bit.
+ * whereas the most significant 32 bits are filled with the sign bit of this value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -314,16 +314,20 @@ public inline fun Int.toULong(): ULong = ULong(this.toLong())
 public inline fun Long.toULong(): ULong = ULong(this)
 
 /**
- * Converts this [Float] value to [ULong]. The factional part, if any, is rounded down.
- * Returns zero if this `Float` value is negative or NaN, [ULong.MAX_VALUE] if it's bigger than `ULong.MAX_VALUE`.
+ * Converts this [Float] value to [ULong].
+ *
+ * The fractional part, if any, is rounded down.
+ * Returns zero if this `Float` value is negative or `NaN`, [ULong.MAX_VALUE] if it's bigger than `ULong.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Float.toULong(): ULong = doubleToULong(this.toDouble())
 /**
- * Converts this [Double] value to [ULong]. The factional part, if any, is rounded down.
- * Returns zero if this `Double` value is negative or NaN, [ULong.MAX_VALUE] if it's bigger than `ULong.MAX_VALUE`.
+ * Converts this [Double] value to [ULong].
+ *
+ * The fractional part, if any, is rounded down.
+ * Returns zero if this `Double` value is negative or `NaN`, [ULong.MAX_VALUE] if it's bigger than `ULong.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes

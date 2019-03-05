@@ -312,7 +312,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
                     out.println(" * If this value is positive, the resulting `$className` value represents the same numerical value as this `$otherSigned`.")
                     out.println(" *")
                     out.println(" * The ${lsb(otherType.bitSize)} of the resulting `$className` value are the same as the binary representation of this `$otherSigned` value,")
-                    out.println(" * whereas the ${msb(type.bitSize - otherType.bitSize)} are filled with sign bit.")
+                    out.println(" * whereas the ${msb(type.bitSize - otherType.bitSize)} are filled with the sign bit of this value.")
                 }
                 otherType == type -> {
                     out.println(" * If this value is positive, the resulting `$className` value represents the same numerical value as this `$otherSigned`.")
@@ -344,8 +344,10 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
             out.println(
                 """
                 /**
-                 * Converts this [$otherName] value to [$className]. The factional part, if any, is rounded down.
-                 * Returns zero if this `$otherName` value is negative or NaN, [$className.MAX_VALUE] if it's bigger than `$className.MAX_VALUE`.
+                 * Converts this [$otherName] value to [$className].
+                 *
+                 * The fractional part, if any, is rounded down.
+                 * Returns zero if this `$otherName` value is negative or `NaN`, [$className.MAX_VALUE] if it's bigger than `$className.MAX_VALUE`.
                  */
                 """.trimIndent()
             )

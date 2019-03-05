@@ -259,7 +259,7 @@ public inline class UShort @PublishedApi internal constructor(@PublishedApi inte
  * If this value is positive, the resulting `UShort` value represents the same numerical value as this `Byte`.
  *
  * The least significant 8 bits of the resulting `UShort` value are the same as the binary representation of this `Byte` value,
- * whereas the most significant 8 bits are filled with sign bit.
+ * whereas the most significant 8 bits are filled with the sign bit of this value.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
@@ -302,16 +302,20 @@ public inline fun Int.toUShort(): UShort = UShort(this.toShort())
 public inline fun Long.toUShort(): UShort = UShort(this.toShort())
 
 /**
- * Converts this [Float] value to [UShort]. The factional part, if any, is rounded down.
- * Returns zero if this `Float` value is negative or NaN, [UShort.MAX_VALUE] if it's bigger than `UShort.MAX_VALUE`.
+ * Converts this [Float] value to [UShort].
+ *
+ * The fractional part, if any, is rounded down.
+ * Returns zero if this `Float` value is negative or `NaN`, [UShort.MAX_VALUE] if it's bigger than `UShort.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
 @kotlin.internal.InlineOnly
 public inline fun Float.toUShort(): UShort = doubleToUShort(this.toDouble())
 /**
- * Converts this [Double] value to [UShort]. The factional part, if any, is rounded down.
- * Returns zero if this `Double` value is negative or NaN, [UShort.MAX_VALUE] if it's bigger than `UShort.MAX_VALUE`.
+ * Converts this [Double] value to [UShort].
+ *
+ * The fractional part, if any, is rounded down.
+ * Returns zero if this `Double` value is negative or `NaN`, [UShort.MAX_VALUE] if it's bigger than `UShort.MAX_VALUE`.
  */
 @SinceKotlin("1.3")
 @ExperimentalUnsignedTypes
