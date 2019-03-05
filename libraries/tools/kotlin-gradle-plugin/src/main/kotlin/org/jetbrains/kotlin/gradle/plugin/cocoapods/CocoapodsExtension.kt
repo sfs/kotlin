@@ -72,8 +72,8 @@ open class CocoapodsExtension(private val project: Project) {
 
     data class CocoapodsDependency(
         private val name: String,
-        @Optional @Input val version: String?,
-        @Input val moduleName: String
+        @get:Optional @get:Input val version: String?,
+        @get:Input val moduleName: String
     ) : Named {
         @Input
         override fun getName(): String = name
