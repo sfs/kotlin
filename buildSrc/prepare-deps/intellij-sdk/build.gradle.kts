@@ -88,7 +88,7 @@ val nodeJS by configurations.creating
  */
 val intellijRuntimeAnnotations = "intellij-runtime-annotations"
 
-val customDepsRepoDir = File(rootProject.rootDir, "../dependencies/repo")
+val customDepsRepoDir = rootProject.rootDir.parentFile.resolve("dependencies/repo")
 val customDepsOrg: String by rootProject.extra
 val customDepsRevision = intellijVersion
 val repoDir = File(customDepsRepoDir, customDepsOrg)
