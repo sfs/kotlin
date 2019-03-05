@@ -19,8 +19,10 @@ import java.io.File
  */
 open class PodspecTask : DefaultTask() {
 
+    private val specName = project.name.asValidFrameworkName()
+
     @OutputFile
-    val outputFile: File = project.projectDir.resolve("${project.name}.podspec")
+    val outputFile: File = project.projectDir.resolve("$specName.podspec")
 
     @Nested
     lateinit var settings: CocoapodsExtension
@@ -34,7 +36,6 @@ open class PodspecTask : DefaultTask() {
             val versionSuffix = if (pod.version != null) ", '${pod.version}'" else ""
             "|    spec.dependency '${pod.name}'$versionSuffix"
         }.joinToString(separator = "\n")
-        val specName = project.name.asValidFrameworkName()
 
         outputFile.writeText("""
             |Pod::Spec.new do |spec|
@@ -78,6 +79,16 @@ open class PodspecTask : DefaultTask() {
             |    ]
             |end
         """.trimMargin())
+
+        logger.quiet(
+            """
+            Generated a podspec file at: ${outputFile.absolutePath}.
+            To include it in your CocoaPods project, add the following dependency snippet in your Podfile:
+
+                pod '$specName', :path => '${outputFile.parentFile.absolutePath}'
+
+            """.trimIndent()
+        )
     }
 }
 
