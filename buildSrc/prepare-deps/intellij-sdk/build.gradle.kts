@@ -212,8 +212,11 @@ fun buildIvyRepositoryTask(
             val moduleName = moduleVersion.id.name
             val moduleDirectory = moduleDirectory()
             val artifactsDirectory = File(moduleDirectory(), "artifacts")
+
+            logger.info("Deleting target directory: $moduleDirectory")
             delete(moduleDirectory)
 
+            logger.info("Unpacking ${file.name} into ${artifactsDirectory.absolutePath}")
             copy {
                 from(zipTree(file).matching {
                     exclude("**/plugins/Kotlin/**")
