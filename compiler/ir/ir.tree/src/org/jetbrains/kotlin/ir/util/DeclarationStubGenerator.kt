@@ -120,6 +120,7 @@ class DeclarationStubGenerator(
                     constantValueGenerator.generateConstantValueAsExpression(UNDEFINED_OFFSET, UNDEFINED_OFFSET, it)
                 )
             }
+            parent = generateParentStub(descriptor)
         }
     }
 
@@ -228,6 +229,19 @@ class DeclarationStubGenerator(
         val origin = computeOrigin(descriptor)
         return symbolTable.declareScopedTypeParameter(UNDEFINED_OFFSET, UNDEFINED_OFFSET, origin, descriptor) {
             IrLazyTypeParameter(UNDEFINED_OFFSET, UNDEFINED_OFFSET, origin, it, this, typeTranslator)
+        }
+    }
+
+    internal fun generateParentStub(descriptor: DeclarationDescriptor): IrDeclarationParent {
+        val containingDeclaration =
+            ((descriptor as? PropertyAccessorDescriptor)?.correspondingProperty ?: descriptor).containingDeclaration
+
+        return when (containingDeclaration) {
+            is PackageFragmentDescriptor -> generateOrGetEmptyExternalPackageFragmentStub(containingDeclaration)
+            is ClassDescriptor -> generateClassStub(containingDeclaration)
+            is FunctionDescriptor -> generateFunctionStub(containingDeclaration)
+            is PropertyDescriptor -> generateFunctionStub(containingDeclaration.run { getter ?: setter!! })
+            else -> throw AssertionError("Package or class expected: $containingDeclaration; for $descriptor")
         }
     }
 }

@@ -106,7 +106,6 @@ class SharedVariablesLowering(val context: BackendContext) : FunctionLoweringPas
                     if (declaration !in sharedVariables) return declaration
 
                     val newDeclaration = context.sharedVariablesManager.declareSharedVariable(declaration)
-                    newDeclaration.parent = irFunction
                     transformedSymbols[declaration.symbol] = newDeclaration.symbol
 
                     return context.sharedVariablesManager.defineSharedValue(declaration, newDeclaration)
