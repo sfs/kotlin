@@ -153,7 +153,7 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                     }
                 })
 
-                body = enumConstructor.body // will be transformed later
+                body = enumConstructor.body?.patchDeclarationParents(this)
 
                 loweredEnumConstructors[enumConstructor.symbol] = this
                 metadata = enumConstructor.metadata
