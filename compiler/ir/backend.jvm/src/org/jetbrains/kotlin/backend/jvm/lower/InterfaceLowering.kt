@@ -112,7 +112,9 @@ internal fun createStaticFunctionWithReceivers(
         val mapping: Map<IrValueParameter, IrValueParameter> =
             (listOfNotNull(oldFunction.dispatchReceiverParameter, oldFunction.extensionReceiverParameter) + oldFunction.valueParameters)
                 .zip(valueParameters).toMap()
-        body = oldFunction.body?.transform(VariableRemapper(mapping), null)
+        body = oldFunction.body
+            ?.transform(VariableRemapper(mapping), null)
+            ?.patchDeclarationParents(this)
 
         metadata = oldFunction.metadata
     }
