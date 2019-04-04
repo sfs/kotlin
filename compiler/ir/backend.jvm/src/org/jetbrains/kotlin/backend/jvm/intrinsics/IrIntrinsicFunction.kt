@@ -8,11 +8,13 @@ package org.jetbrains.kotlin.backend.jvm.intrinsics
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.codegen.BlockInfo
 import org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen
+import org.jetbrains.kotlin.backend.jvm.codegen.IrCallable
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.Callable
 import org.jetbrains.kotlin.codegen.StackValue
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.toKotlinType
 import org.jetbrains.kotlin.resolve.calls.components.isVararg
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
@@ -26,16 +28,20 @@ open class IrIntrinsicFunction(
     val signature: JvmMethodSignature,
     val context: JvmBackendContext,
     val argsTypes: List<Type> = expression.argTypes(context)
-) : Callable {
+) : IrCallable {
     override val owner: Type
         get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
     override val dispatchReceiverType: Type?
         get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
     override val dispatchReceiverKotlinType: KotlinType?
         get() = null
+    override val dispatchReceiverIrType: IrType?
+        get() = null
     override val extensionReceiverType: Type?
         get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
     override val extensionReceiverKotlinType: KotlinType?
+        get() = null
+    override val extensionReceiverIrType: IrType?
         get() = null
     override val generateCalleeType: Type?
         get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
@@ -46,6 +52,8 @@ open class IrIntrinsicFunction(
     override val returnType: Type
         get() = signature.returnType
     override val returnKotlinType: KotlinType?
+        get() = null
+    override val returnIrType: IrType?
         get() = null
 
     override fun isStaticCall(): Boolean {
@@ -92,7 +100,7 @@ open class IrIntrinsicFunction(
     }
 
     private fun genArg(expression: IrExpression, codegen: ExpressionCodegen, index: Int, data: BlockInfo) {
-        codegen.gen(expression, argsTypes[index], data)
+        codegen.gen(expression, argsTypes[index], data, expression.type)
     }
 
     companion object {

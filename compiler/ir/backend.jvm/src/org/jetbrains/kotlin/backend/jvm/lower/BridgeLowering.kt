@@ -278,9 +278,9 @@ private class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPass
                             superQualifierSymbol = if (invokeStatically) maybeOrphanedTarget.parentAsClass.symbol else null
                         ).apply {
                             passTypeArgumentsFrom(this@createBridgeBody)
-                            dispatchReceiver = irImplicitCast(irGet(dispatchReceiverParameter!!), dispatchReceiverParameter!!.type)
+                            dispatchReceiver = irGet(dispatchReceiverParameter!!)
                             extensionReceiverParameter?.let {
-                                extensionReceiver = irImplicitCast(irGet(it), extensionReceiverParameter!!.type)
+                                extensionReceiver = irImplicitCast(irGet(it), maybeOrphanedTarget.extensionReceiverParameter!!.type)
                             }
                             valueParameters.forEach {
                                 putValueArgument(it.index, irImplicitCast(irGet(it), maybeOrphanedTarget.valueParameters[it.index].type))

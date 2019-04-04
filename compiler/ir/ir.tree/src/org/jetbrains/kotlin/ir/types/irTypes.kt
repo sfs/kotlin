@@ -17,20 +17,16 @@ import org.jetbrains.kotlin.types.typeUtil.makeNullable
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
-fun IrType.withHasQuestionMark(newHasQuestionMark: Boolean): IrType =
-    when (this) {
-        is IrSimpleType ->
-            if (this.hasQuestionMark == newHasQuestionMark)
-                this
-            else
-                buildSimpleType {
-                    hasQuestionMark = newHasQuestionMark
-                    kotlinType = originalKotlinType?.run {
-                        if (newHasQuestionMark) makeNullable() else makeNotNullable()
-                    }
-                }
-        else -> this
-    }
+fun IrType.withHasQuestionMark(hasQuestionMark: Boolean): IrType =
+    if (this is IrSimpleType && this.hasQuestionMark != hasQuestionMark)
+        IrSimpleTypeImpl(
+            originalKotlinType?.run { if (hasQuestionMark) makeNullable() else makeNotNullable() },
+            classifier,
+            hasQuestionMark,
+            arguments,
+            annotations
+        )
+    else this
 
 val IrType.classifierOrFail: IrClassifierSymbol
     get() = cast<IrSimpleType>().classifier
@@ -41,23 +37,9 @@ val IrType.classifierOrNull: IrClassifierSymbol?
 val IrType.classOrNull: IrClassSymbol?
     get() = classifierOrNull as? IrClassSymbol
 
-fun IrType.makeNotNull() =
-    if (this is IrSimpleType && this.hasQuestionMark) {
-        buildSimpleType {
-            kotlinType = originalKotlinType?.makeNotNullable()
-            hasQuestionMark = false
-        }
-    } else
-        this
+fun IrType.makeNotNull() = withHasQuestionMark(false)
 
-fun IrType.makeNullable() =
-    if (this is IrSimpleType && !this.hasQuestionMark)
-        buildSimpleType {
-            kotlinType = originalKotlinType?.makeNullable()
-            hasQuestionMark = true
-        }
-    else
-        this
+fun IrType.makeNullable() = withHasQuestionMark(true)
 
 fun IrType.toKotlinType(): KotlinType {
     originalKotlinType?.let {

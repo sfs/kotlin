@@ -1,0 +1,21 @@
+// IGNORE_BACKEND: JS, JS_IR, JVM
+// !LANGUAGE: +InlineClasses
+
+@file:Suppress("SECONDARY_CONSTRUCTOR_WITH_BODY_INSIDE_INLINE_CLASS")
+
+interface T
+
+inline class Foo(val x: String) : T {
+    constructor(y: Int) : this(y.toString()) {
+        if (y == 0) return throw java.lang.IllegalArgumentException()
+        //if (y == 1) return
+        //return Unit
+    }
+
+    constructor(z: Double) : this(z.toInt())
+}
+
+fun box(): String {
+    var f = Foo(42.0)
+    return "OK"
+}

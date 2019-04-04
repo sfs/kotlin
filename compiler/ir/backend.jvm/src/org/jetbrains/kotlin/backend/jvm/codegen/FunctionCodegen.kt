@@ -11,12 +11,12 @@ import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.types.toKotlinType
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.getAnnotation
 import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.isAnnotationClass
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodGenericSignature
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodParameterKind
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
@@ -137,12 +137,17 @@ open class FunctionCodegen(
             ?.expression
     }
 
+    private fun IrFrameMap.enterDispatchReceiver(state: GenerationState, parameter: IrValueParameter) {
+        val type = state.typeMapper.mapTypeAsDeclaration(parameter.type.toKotlinType())
+        enter(parameter, type)
+    }
+
     private fun createFrameMapWithReceivers(signature: JvmMethodSignature): IrFrameMap {
         val frameMap = IrFrameMap()
         if (irFunction is IrConstructor) {
-            frameMap.enter((irFunction.parent as IrClass).thisReceiver!!, AsmTypes.OBJECT_TYPE)
+            frameMap.enterDispatchReceiver(state, (irFunction.parent as IrClass).thisReceiver!!)
         } else if (irFunction.dispatchReceiverParameter != null) {
-            frameMap.enter(irFunction.dispatchReceiverParameter!!, AsmTypes.OBJECT_TYPE)
+            frameMap.enterDispatchReceiver(state, irFunction.dispatchReceiverParameter!!)
         }
 
         for (parameter in signature.valueParameters) {

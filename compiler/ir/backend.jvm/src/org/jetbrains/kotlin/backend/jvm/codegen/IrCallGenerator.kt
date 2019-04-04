@@ -17,21 +17,21 @@
 package org.jetbrains.kotlin.backend.jvm.codegen
 
 import org.jetbrains.kotlin.codegen.Callable
-import org.jetbrains.kotlin.codegen.CallableMethod
 import org.jetbrains.kotlin.codegen.StackValue
 import org.jetbrains.kotlin.codegen.ValueKind
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.org.objectweb.asm.Type
 
 interface IrCallGenerator {
 
-    fun genCall(callableMethod: Callable, callDefault: Boolean, codegen: ExpressionCodegen, expression: IrFunctionAccessExpression) {
+    fun genCall(callable: Callable, callDefault: Boolean, codegen: ExpressionCodegen, expression: IrFunctionAccessExpression) {
         if (!callDefault) {
-            callableMethod.genInvokeInstruction(codegen.mv)
+            callable.genInvokeInstruction(codegen.mv)
         } else {
-            (callableMethod as CallableMethod).genInvokeDefaultInstruction(codegen.mv)
+            callable.toCallableMethod().genInvokeDefaultInstruction(codegen.mv)
         }
     }
 
@@ -43,11 +43,12 @@ interface IrCallGenerator {
         irValueParameter: IrValueParameter?,
         argumentExpression: IrExpression,
         parameterType: Type,
+        parameterIrType: IrType,
         parameterIndex: Int,
         codegen: ExpressionCodegen,
         blockInfo: BlockInfo
     ) {
-        codegen.gen(argumentExpression, parameterType, blockInfo)
+        codegen.gen(argumentExpression, parameterType, blockInfo, parameterIrType)
     }
 
     fun putValueIfNeeded(parameterType: Type, value: StackValue, kind: ValueKind, parameterIndex: Int, codegen: ExpressionCodegen) {

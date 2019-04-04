@@ -24,6 +24,9 @@ import org.jetbrains.kotlin.codegen.BranchedValue
 import org.jetbrains.kotlin.codegen.NumberCompare
 import org.jetbrains.kotlin.codegen.ObjectCompare
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
+import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.toKotlinType
 import org.jetbrains.kotlin.lexer.KtSingleValueToken
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.types.KotlinType
@@ -90,8 +93,8 @@ class PrimitiveComparison(
     override fun invoke(expression: IrFunctionAccessExpression, codegen: ExpressionCodegen, data: BlockInfo): PromisedValue? {
         val parameterType = codegen.typeMapper.kotlinTypeMapper.mapType(primitiveNumberType)
         val (left, right) = expression.receiverAndArgs()
-        val a = left.accept(codegen, data).coerce(parameterType).materialized
-        val b = right.accept(codegen, data).coerce(parameterType).materialized
+        val a = left.accept(codegen, data).coerce(parameterType, left.type).materialized
+        val b = right.accept(codegen, data).coerce(parameterType, right.type).materialized
         return BooleanComparison(operatorToken, a, b)
     }
 }

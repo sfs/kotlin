@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.ir.util.isNullConst
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
+import org.jetbrains.kotlin.types.isNullable
 import org.jetbrains.kotlin.types.typeUtil.isPrimitiveNumberOrNullableType
 import org.jetbrains.kotlin.types.typeUtil.upperBoundedByPrimitiveNumberOrNullableType
 import org.jetbrains.org.objectweb.asm.Label
@@ -46,11 +47,11 @@ class Equals(val operator: IElementType) : IntrinsicMethod() {
                 // is that `equals` is a total order (-0 < +0 and NaN == NaN) and `===` is IEEE754-compliant.
                 (!isPrimitive(leftType) || leftType != rightType || leftType == Type.FLOAT_TYPE || leftType == Type.DOUBLE_TYPE)
         val operandType = if (!isPrimitive(leftType) || useEquals) AsmTypes.OBJECT_TYPE else leftType
-        val aValue = a.accept(codegen, data).coerce(operandType).materialized
-        val bValue = b.accept(codegen, data).coerce(operandType).materialized
+        val aValue = a.accept(codegen, data).coerce(operandType, a.type).materialized
+        val bValue = b.accept(codegen, data).coerce(operandType, b.type).materialized
         if (useEquals) {
             AsmUtil.genAreEqualCall(codegen.mv)
-            return MaterialValue(codegen.mv, Type.BOOLEAN_TYPE)
+            return MaterialValue(codegen.mv, Type.BOOLEAN_TYPE, codegen.context.irBuiltIns.booleanType)
         }
         return BooleanComparison(operator, aValue, bValue)
     }
@@ -86,8 +87,8 @@ class Ieee754Equals(val operandType: Type) : IntrinsicMethod() {
         if (!arg1Type.isPrimitiveNumberOrNullableType() && !arg1Type.upperBoundedByPrimitiveNumberOrNullableType())
             throw AssertionError("Should be primitive or nullable primitive type: $arg1Type")
 
-        val arg0isNullable = arg0Type.isMarkedNullable
-        val arg1isNullable = arg1Type.isMarkedNullable
+        val arg0isNullable = arg0Type.isNullable()
+        val arg1isNullable = arg1Type.isNullable()
 
         return when {
             !arg0isNullable && !arg1isNullable ->

@@ -26,7 +26,7 @@ import org.jetbrains.org.objectweb.asm.Type
 object JavaClassProperty : IntrinsicMethod() {
     fun invokeWith(value: PromisedValue) {
         if (value.type == Type.VOID_TYPE) {
-            return invokeWith(value.coerce(AsmTypes.UNIT_TYPE))
+            return invokeWith(value.coerce(AsmTypes.UNIT_TYPE, null))
         }
         if (isPrimitive(value.type)) {
             value.discard()

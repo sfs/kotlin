@@ -57,6 +57,9 @@ class IrTypeMapper(val kotlinTypeMapper: KotlinTypeMapper) {
     fun mapType(irType: IrType, sw: JvmSignatureWriter, mode: TypeMappingMode) =
         kotlinTypeMapper.mapType(irType.toKotlinType(), sw, mode)
 
+    fun mapTypeAsDeclaration(irType: IrType) =
+        kotlinTypeMapper.mapTypeAsDeclaration(irType.toKotlinType())
+
     fun mapTypeParameter(irType: IrType, signatureWriter: JvmSignatureWriter) =
         kotlinTypeMapper.mapTypeParameter(irType.toKotlinType(), signatureWriter)
 

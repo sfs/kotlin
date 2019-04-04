@@ -40,6 +40,9 @@ inline fun IrBuilderWithScope.irLetS(
     nameHint: String? = null,
     body: (IrValueSymbol) -> IrExpression
 ): IrExpression {
+    if (value is IrGetValue)
+        return body(value.symbol)
+
     val irTemporary = scope.createTemporaryVariable(value, nameHint)
     val irResult = body(irTemporary.symbol)
     val irBlock = IrBlockImpl(startOffset, endOffset, irResult.type, origin)
@@ -64,6 +67,16 @@ fun <T : IrElement> IrStatementsBuilder<T>.defineTemporary(value: IrExpression, 
     val temporary = scope.createTemporaryVariable(value, nameHint)
     +temporary
     return temporary.descriptor
+}
+
+fun <T : IrElement> IrStatementsBuilder<T>.irTemporaryVarDeclaration(
+    type: IrType,
+    nameHint: String? = null,
+    isMutable: Boolean = true
+): IrVariable {
+    val temporary = scope.createTemporaryVariableDeclaration(type, nameHint, isMutable = isMutable)
+    +temporary
+    return temporary
 }
 
 fun <T : IrElement> IrStatementsBuilder<T>.irTemporaryVar(
@@ -166,8 +179,8 @@ fun IrBuilderWithScope.irGet(variable: IrValueDeclaration) = irGet(variable.type
 fun IrBuilderWithScope.irSetVar(variable: IrVariableSymbol, value: IrExpression) =
     IrSetVariableImpl(startOffset, endOffset, context.irBuiltIns.unitType, variable, value, IrStatementOrigin.EQ)
 
-fun IrBuilderWithScope.irGetField(receiver: IrExpression?, field: IrField) =
-    IrGetFieldImpl(startOffset, endOffset, field.symbol, field.type, receiver)
+fun IrBuilderWithScope.irGetField(receiver: IrExpression?, field: IrField, origin: IrStatementOrigin? = null) =
+    IrGetFieldImpl(startOffset, endOffset, field.symbol, field.type, receiver, origin)
 
 fun IrBuilderWithScope.irSetField(receiver: IrExpression?, field: IrField, value: IrExpression) =
     IrSetFieldImpl(startOffset, endOffset, field.symbol, receiver, value, field.type)
@@ -179,7 +192,10 @@ fun IrBuilderWithScope.irEqeqeq(arg1: IrExpression, arg2: IrExpression) =
     context.eqeqeq(startOffset, endOffset, arg1, arg2)
 
 fun IrBuilderWithScope.irNull() =
-    IrConstImpl.constNull(startOffset, endOffset, context.irBuiltIns.nothingNType)
+    irNull(context.irBuiltIns.nothingNType)
+
+fun IrBuilderWithScope.irNull(type: IrType) =
+    IrConstImpl.constNull(startOffset, endOffset, type)
 
 fun IrBuilderWithScope.irEqualsNull(argument: IrExpression) =
     primitiveOp2(
@@ -250,10 +266,10 @@ fun IrBuilderWithScope.irCallConstructor(callee: IrConstructorSymbol, typeArgume
 fun IrBuilderWithScope.irCall(callee: IrSimpleFunctionSymbol, type: IrType): IrCall =
     IrCallImpl(startOffset, endOffset, type, callee, callee.descriptor)
 
-fun IrBuilderWithScope.irCall(callee: IrConstructorSymbol, type: IrType): IrConstructorCall =
-    IrConstructorCallImpl.fromSymbolDescriptor(startOffset, endOffset, type, callee)
+fun IrBuilderWithScope.irCall(callee: IrConstructorSymbol, type: IrType, origin: IrStatementOrigin? = null): IrConstructorCall =
+    IrConstructorCallImpl.fromSymbolDescriptor(startOffset, endOffset, type, callee, origin)
 
-fun IrBuilderWithScope.irCall(callee: IrFunctionSymbol, type: IrType): IrMemberAccessExpression =
+fun IrBuilderWithScope.irCall(callee: IrFunctionSymbol, type: IrType): IrFunctionAccessExpression =
     when (callee) {
         is IrConstructorSymbol -> irCall(callee, type)
         is IrSimpleFunctionSymbol -> irCall(callee, type)
@@ -263,16 +279,16 @@ fun IrBuilderWithScope.irCall(callee: IrFunctionSymbol, type: IrType): IrMemberA
 fun IrBuilderWithScope.irCall(callee: IrSimpleFunctionSymbol): IrCall =
     irCall(callee, callee.owner.returnType)
 
-fun IrBuilderWithScope.irCall(callee: IrConstructorSymbol): IrConstructorCall =
-    irCall(callee, callee.owner.returnType)
+fun IrBuilderWithScope.irCall(callee: IrConstructorSymbol, origin: IrStatementOrigin? = null): IrConstructorCall =
+    irCall(callee, callee.owner.returnType, origin)
 
-fun IrBuilderWithScope.irCall(callee: IrFunctionSymbol): IrMemberAccessExpression =
+fun IrBuilderWithScope.irCall(callee: IrFunctionSymbol): IrFunctionAccessExpression =
     irCall(callee, callee.owner.returnType)
 
 fun IrBuilderWithScope.irCall(callee: IrFunctionSymbol, descriptor: FunctionDescriptor, type: IrType): IrCall =
     IrCallImpl(startOffset, endOffset, type, callee as IrSimpleFunctionSymbol, descriptor)
 
-fun IrBuilderWithScope.irCall(callee: IrFunction): IrMemberAccessExpression =
+fun IrBuilderWithScope.irCall(callee: IrFunction): IrFunctionAccessExpression =
     irCall(callee.symbol)
 
 fun IrBuilderWithScope.irCall(callee: IrFunction, origin: IrStatementOrigin): IrCall =

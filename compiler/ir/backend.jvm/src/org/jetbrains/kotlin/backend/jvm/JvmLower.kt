@@ -72,6 +72,7 @@ val jvmPhases = namedIrFilePhase<JvmBackendContext>(
             renameFieldsPhase then
             annotationPhase then
 
+            jvmInlineClassPhase then
             jvmDefaultArgumentStubPhase then
 
             interfacePhase then
