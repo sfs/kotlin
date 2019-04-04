@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStringConcatenation
 import org.jetbrains.kotlin.ir.expressions.impl.IrStringConcatenationImpl
-import org.jetbrains.kotlin.ir.types.isString
+import org.jetbrains.kotlin.ir.types.isStringClassType
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
@@ -75,9 +75,9 @@ class FlattenStringConcatenationLowering(val context: CommonBackendContext) : Fi
                 is IrCall -> {
                     val dispatchReceiver = expression.dispatchReceiver
                     dispatchReceiver != null &&
-                            dispatchReceiver.type.isString() &&
+                            dispatchReceiver.type.isStringClassType() &&
                             expression.symbol.owner.name == PLUS_NAME &&
-                            expression.type.isString() &&
+                            expression.type.isStringClassType() &&
                             expression.valueArgumentsCount == 1
                 }
                 else -> false

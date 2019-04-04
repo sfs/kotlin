@@ -119,7 +119,6 @@ public class IntrinsicMethods {
 
         declareIntrinsicFunction(FQ_NAMES._boolean, "not", 0, new Not());
 
-        declareIntrinsicFunction(FQ_NAMES.string, "plus", 1, new Concat());
         declareIntrinsicFunction(FQ_NAMES.string, "get", 1, new StringGetChar());
 
         declareIntrinsicFunction(FQ_NAMES.cloneable, "clone", 0, CLONE);
