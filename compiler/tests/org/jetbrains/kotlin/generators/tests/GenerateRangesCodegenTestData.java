@@ -119,7 +119,7 @@ public class GenerateRangesCodegenTestData {
                 .replace("\n", LineSeparator.getSystemLineSeparator().getSeparatorString());
     }
 
-    private static final List<String> WHITELISTED_FOR_JVM_IR_BACKEND = Collections.singletonList("overflowZeroDownToMaxValue.kt");
+    private static final List<String> WHITELISTED_FOR_JVM_IR_BACKEND = Collections.emptyList();
 
     private static void writeIgnoreBackendDirective(PrintWriter out, String backendName) {
         out.printf("// TODO: muted automatically, investigate should it be ran for %s or not%n", backendName);

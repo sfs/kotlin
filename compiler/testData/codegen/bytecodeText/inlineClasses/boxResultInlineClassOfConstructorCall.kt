@@ -1,5 +1,6 @@
 // !LANGUAGE: +InlineClasses
 // IGNORE_BACKEND: JVM_IR
+// On JVM_IR the RedundantBoxingMethodTransformer removes both calls to Result.box
 
 // FILE: utils.kt
 

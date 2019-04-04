@@ -40,6 +40,9 @@ inline fun IrBuilderWithScope.irLetS(
     nameHint: String? = null,
     body: (IrValueSymbol) -> IrExpression
 ): IrExpression {
+    if (value is IrGetValue)
+        return body(value.symbol)
+
     val irTemporary = scope.createTemporaryVariable(value, nameHint)
     val irResult = body(irTemporary.symbol)
     val irBlock = IrBlockImpl(startOffset, endOffset, irResult.type, origin)
@@ -64,6 +67,16 @@ fun <T : IrElement> IrStatementsBuilder<T>.defineTemporary(value: IrExpression, 
     val temporary = scope.createTemporaryVariable(value, nameHint)
     +temporary
     return temporary.descriptor
+}
+
+fun <T : IrElement> IrStatementsBuilder<T>.irTemporaryVarDeclaration(
+    type: IrType,
+    nameHint: String? = null,
+    isMutable: Boolean = true
+): IrVariable {
+    val temporary = scope.createTemporaryVariableDeclaration(type, nameHint, isMutable = isMutable)
+    +temporary
+    return temporary
 }
 
 fun <T : IrElement> IrStatementsBuilder<T>.irTemporaryVar(
