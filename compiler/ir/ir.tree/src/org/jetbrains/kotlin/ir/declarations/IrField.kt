@@ -15,7 +15,7 @@ interface IrField : IrSymbolDeclaration<IrFieldSymbol>, IrOverridableDeclaration
     IrDeclarationWithName, IrDeclarationWithVisibility, IrDeclarationParent {
     override val descriptor: PropertyDescriptor
 
-    val type: IrType
+    var type: IrType
     val isFinal: Boolean
     val isExternal: Boolean
     val isStatic: Boolean

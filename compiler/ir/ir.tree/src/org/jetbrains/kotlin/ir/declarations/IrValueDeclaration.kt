@@ -13,5 +13,5 @@ interface IrValueDeclaration : IrDeclarationWithName, IrSymbolOwner {
     override val descriptor: ValueDescriptor
     override val symbol: IrValueSymbol
 
-    val type: IrType
+    var type: IrType
 }
