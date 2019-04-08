@@ -1,5 +1,6 @@
 // !LANGUAGE: -NullabilityAssertionOnExtensionReceiver
 // TARGET_BACKEND: JVM
+// IGNORE_BACKEND: JVM_IR
 // FILE: test.kt
 // WITH_RUNTIME
 private operator fun A.inc() = A()

@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.ir.types.toKotlinType
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
+import org.jetbrains.kotlin.types.isNullable
 import org.jetbrains.kotlin.types.typeUtil.isPrimitiveNumberOrNullableType
 import org.jetbrains.kotlin.types.typeUtil.upperBoundedByPrimitiveNumberOrNullableType
 import org.jetbrains.org.objectweb.asm.Type
@@ -118,8 +119,8 @@ class Ieee754Equals(val operandType: Type) : IntrinsicMethod() {
         if (!arg1Type.isPrimitiveNumberOrNullableType() && !arg1Type.upperBoundedByPrimitiveNumberOrNullableType())
             throw AssertionError("Should be primitive or nullable primitive type: $arg1Type")
 
-        val arg0isNullable = arg0Type.isMarkedNullable
-        val arg1isNullable = arg1Type.isMarkedNullable
+        val arg0isNullable = arg0Type.isNullable()
+        val arg1isNullable = arg1Type.isNullable()
 
         return when {
             !arg0isNullable && !arg1isNullable ->
