@@ -57,21 +57,7 @@ private class ToArrayLowering(private val context: JvmBackendContext) : ClassLow
         val nonGenericToArray = irClass.declarations.find { it.isNonGenericToArray() }
 
         if (genericToArray == null) {
-            val typeParameterDescriptor = WrappedTypeParameterDescriptor()
-            val typeParameter = IrTypeParameterImpl(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                JvmLoweredDeclarationOrigin.TO_ARRAY,
-                IrTypeParameterSymbolImpl(typeParameterDescriptor),
-                Name.identifier("T"),
-                index = 0,
-                variance = Variance.INVARIANT,
-                isReified = false
-            ).apply {
-                typeParameterDescriptor.bind(this)
-                superTypes.add(irBuiltIns.anyNType)
-            }
-
-            val substitutedArrayType = irBuiltIns.arrayClass.typeWith(typeParameter.defaultType)
+            val substitutedArrayType = irBuiltIns.arrayClass.typeWith(irBuiltIns.anyNType)
             val functionDescriptor = WrappedSimpleFunctionDescriptor()
             val irFunction = IrFunctionImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
@@ -88,10 +74,6 @@ private class ToArrayLowering(private val context: JvmBackendContext) : ClassLow
             )
             functionDescriptor.bind(irFunction)
             irFunction.parent = irClass
-
-            typeParameter.parent = irFunction
-            irFunction.typeParameters.add(typeParameter)
-
 
             val dispatchReceiverParameterDescriptor = WrappedValueParameterDescriptor()
             irFunction.dispatchReceiverParameter = IrValueParameterImpl(
