@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.codegen.intrinsics.IntrinsicMethods
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.types.toKotlinType
+import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
@@ -110,16 +111,18 @@ class Ieee754Equals(val operandType: Type) : IntrinsicMethod() {
             }
         }
 
-        val arg0Type = expression.getValueArgument(0)!!.type.toKotlinType()
+        val arg0IrType = expression.getValueArgument(0)!!.type
+        val arg0Type = arg0IrType.toKotlinType()
         if (!arg0Type.isPrimitiveNumberOrNullableType() && !arg0Type.upperBoundedByPrimitiveNumberOrNullableType())
             throw AssertionError("Should be primitive or nullable primitive type: $arg0Type")
 
-        val arg1Type = expression.getValueArgument(1)!!.type.toKotlinType()
+        val arg1IrType = expression.getValueArgument(1)!!.type
+        val arg1Type = arg1IrType.toKotlinType()
         if (!arg1Type.isPrimitiveNumberOrNullableType() && !arg1Type.upperBoundedByPrimitiveNumberOrNullableType())
             throw AssertionError("Should be primitive or nullable primitive type: $arg1Type")
 
-        val arg0isNullable = arg0Type.isMarkedNullable
-        val arg1isNullable = arg1Type.isMarkedNullable
+        val arg0isNullable = arg0IrType.isNullable()
+        val arg1isNullable = arg1IrType.isNullable()
 
         return when {
             !arg0isNullable && !arg1isNullable ->

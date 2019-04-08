@@ -60,9 +60,9 @@ class TypeTranslator(
             ?: symbolTable.referenceTypeParameter(typeParameterDescriptor)
 
     fun translateType(ktType: KotlinType): IrType =
-        translateType(ktType, Variance.INVARIANT).type
+        translateType(ktType, ktType, Variance.INVARIANT).type
 
-    private fun translateType(ktType: KotlinType, variance: Variance): IrTypeProjection {
+    private fun translateType(originalType: KotlinType, ktType: KotlinType, variance: Variance): IrTypeProjection {
         val approximatedType = LegacyTypeApproximation().approximate(ktType)
 
         when {
@@ -71,7 +71,7 @@ class TypeTranslator(
             approximatedType.isDynamic() ->
                 return IrDynamicTypeImpl(approximatedType, translateTypeAnnotations(approximatedType.annotations), variance)
             approximatedType.isFlexible() ->
-                return translateType(approximatedType.upperIfFlexible(), variance)
+                return translateType(originalType, approximatedType.upperIfFlexible(), variance)
         }
 
         val ktTypeConstructor = approximatedType.constructor
@@ -81,7 +81,7 @@ class TypeTranslator(
         return when (ktTypeDescriptor) {
             is TypeParameterDescriptor ->
                 IrSimpleTypeImpl(
-                    approximatedType,
+                    originalType,
                     resolveTypeParameter(ktTypeDescriptor),
                     approximatedType.isMarkedNullable,
                     emptyList(),
@@ -91,7 +91,7 @@ class TypeTranslator(
 
             is ClassDescriptor ->
                 IrSimpleTypeImpl(
-                    approximatedType,
+                    originalType,
                     symbolTable.referenceClass(ktTypeDescriptor),
                     approximatedType.isMarkedNullable,
                     translateTypeArguments(approximatedType.arguments),
@@ -146,6 +146,6 @@ class TypeTranslator(
             if (it.isStarProjection)
                 IrStarProjectionImpl
             else
-                translateType(it.type, it.projectionKind)
+                translateType(it.type, it.type, it.projectionKind)
         }
 }
