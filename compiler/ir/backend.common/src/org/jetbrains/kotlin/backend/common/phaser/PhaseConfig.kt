@@ -22,7 +22,7 @@ class PhaseConfig(
     val toValidateStateBefore: Set<AnyNamedPhase> = emptySet(),
     val toValidateStateAfter: Set<AnyNamedPhase> = emptySet(),
     val namesOfElementsExcludedFromDumping: Set<String> = emptySet(),
-    val needProfiling: Boolean = false,
+    val needProfiling: Boolean = true,
     val checkConditions: Boolean = false,
     val checkStickyConditions: Boolean = false
 ) {

@@ -28,7 +28,7 @@ enum class IrTypeOperator {
     SAFE_CAST,
     INSTANCEOF,
     NOT_INSTANCEOF,
-    SAM_CONVERSION;
+    SAM_CONVERSION
 }
 
 interface IrTypeOperatorCall : IrExpression {
@@ -37,4 +37,3 @@ interface IrTypeOperatorCall : IrExpression {
     val typeOperand: IrType
     val typeOperandClassifier: IrClassifierSymbol
 }
-

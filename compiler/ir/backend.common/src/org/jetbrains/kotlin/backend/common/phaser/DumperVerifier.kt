@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.name
 import org.jetbrains.kotlin.ir.util.dump
+import org.jetbrains.kotlin.ir.util.verify
 
 abstract class IrPhaseDumperVerifier<in Context : CommonBackendContext, Data : IrElement>(
     val verifier: (Context, Data) -> Unit
@@ -29,7 +30,10 @@ abstract class IrPhaseDumperVerifier<in Context : CommonBackendContext, Data : I
         println(data.dump())
     }
 
-    override fun verify(context: Context, data: Data) = verifier(context, data)
+    override fun verify(context: Context, data: Data) {
+        verifier(context, data)
+        verify(data, context.irBuiltIns)
+    }
 
     private fun shouldBeDumped(phaseConfig: PhaseConfig, input: Data) =
         input.getElementName() !in phaseConfig.namesOfElementsExcludedFromDumping
