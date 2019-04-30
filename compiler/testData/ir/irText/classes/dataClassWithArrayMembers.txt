@@ -625,7 +625,8 @@ FILE fqName:<root> fileName:/dataClassWithArrayMembers.kt
               BRANCH
                 if: CONST Boolean type=kotlin.Boolean value=true
                 then: CALL 'public final fun dataClassArrayMemberHashCode (arg0: kotlin.Any): kotlin.Int declared in kotlin.internal.ir' type=kotlin.Int origin=null
-                  arg0: GET_VAR 'val tmp1: kotlin.Array<kotlin.Any>? [val] declared in <root>.Test3.hashCode' type=kotlin.Array<kotlin.Any>? origin=null
+                  arg0: TYPE_OP type=kotlin.Array<kotlin.Any> origin=IMPLICIT_CAST typeOperand=kotlin.Array<kotlin.Any>
+                    GET_VAR 'val tmp1: kotlin.Array<kotlin.Any>? [val] declared in <root>.Test3.hashCode' type=kotlin.Array<kotlin.Any>? origin=null
         RETURN type=kotlin.Nothing from='public open fun hashCode (): kotlin.Int declared in <root>.Test3'
           GET_VAR 'var tmp0_result: kotlin.Int [var] declared in <root>.Test3.hashCode' type=kotlin.Int origin=null
     FUN GENERATED_DATA_CLASS_MEMBER name:equals visibility:public modality:OPEN <> ($this:<root>.Test3, other:kotlin.Any?) returnType:kotlin.Boolean 

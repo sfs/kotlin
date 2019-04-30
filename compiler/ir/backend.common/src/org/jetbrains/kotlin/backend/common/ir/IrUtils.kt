@@ -226,7 +226,7 @@ fun IrFunction.copyValueParametersToStatic(
             p.copyTo(
                 target,
                 origin = p.origin,
-                index = p.index + shift++,
+                index = shift++,
                 name = Name.identifier("\$this")
             )
         )
@@ -236,7 +236,7 @@ fun IrFunction.copyValueParametersToStatic(
             p.copyTo(
                 target,
                 origin = p.origin,
-                index = p.index + shift++,
+                index = shift++,
                 name = Name.identifier("\$receiver")
             )
         )

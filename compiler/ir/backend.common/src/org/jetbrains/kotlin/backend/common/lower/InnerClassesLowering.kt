@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.builders.irSetField
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
+import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
@@ -78,6 +79,9 @@ class InnerClassesLowering(val context: BackendContext) : ClassLoweringPass {
 
         irClass.transformChildrenVoid(object : IrElementTransformerVoid() {
             private var enclosingConstructor: IrConstructor? = null
+            private var _enclosingThisReceiverSymbol: IrValueParameterSymbol? = null
+            private val enclosingThisReceiverSymbol: IrValueParameterSymbol
+                get() = _enclosingThisReceiverSymbol ?: irClass.thisReceiver!!.symbol
 
             // TODO: maybe add another transformer that skips specified elements
             override fun visitClass(declaration: IrClass): IrStatement =
@@ -91,6 +95,16 @@ class InnerClassesLowering(val context: BackendContext) : ClassLoweringPass {
                     enclosingConstructor = null
                 }
 
+            override fun visitFunction(declaration: IrFunction): IrStatement =
+                try {
+                    // This pass has to run after LocalDeclarationsLowering, since we don't handle nested functions.
+                    assert(_enclosingThisReceiverSymbol == null)
+                    _enclosingThisReceiverSymbol = declaration.dispatchReceiverParameter?.symbol
+                    super.visitFunction(declaration)
+                } finally {
+                    _enclosingThisReceiverSymbol = null
+                }
+
             override fun visitGetValue(expression: IrGetValue): IrExpression {
                 expression.transformChildrenVoid(this)
 
@@ -101,7 +115,7 @@ class InnerClassesLowering(val context: BackendContext) : ClassLoweringPass {
                 val endOffset = expression.endOffset
                 val origin = expression.origin
 
-                var irThis: IrExpression = IrGetValueImpl(startOffset, endOffset, irClass.thisReceiver!!.symbol, origin)
+                var irThis: IrExpression = IrGetValueImpl(startOffset, endOffset, enclosingThisReceiverSymbol, origin)
                 var innerClass = irClass
                 while (innerClass != implicitThisClass) {
                     if (!innerClass.isInner) {
