@@ -83,7 +83,6 @@ private class ToArrayLowering(private val context: JvmBackendContext) : ClassLow
             typeParameter.parent = irFunction
             irFunction.typeParameters.add(typeParameter)
 
-
             val dispatchReceiverParameterDescriptor = WrappedValueParameterDescriptor()
             irFunction.dispatchReceiverParameter = IrValueParameterImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
@@ -141,7 +140,7 @@ private class ToArrayLowering(private val context: JvmBackendContext) : ClassLow
                 toArrayName,
                 Visibilities.PUBLIC,
                 Modality.OPEN,
-                returnType = irBuiltIns.arrayClass.typeWith(irBuiltIns.anyType),
+                returnType = irBuiltIns.arrayClass.typeWith(irBuiltIns.anyNType),
                 isInline = false,
                 isExternal = false,
                 isTailrec = false,

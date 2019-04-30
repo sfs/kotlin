@@ -31,6 +31,9 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.mapTypeParameters
 import org.jetbrains.kotlin.ir.expressions.mapValueParameters
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.types.isMarkedNullable
+import org.jetbrains.kotlin.ir.types.isNullableLong
+import org.jetbrains.kotlin.ir.types.makeNotNull
 import org.jetbrains.kotlin.ir.util.declareSimpleFunctionWithOverrides
 import org.jetbrains.kotlin.ir.util.referenceFunction
 import org.jetbrains.kotlin.psi.KtClassOrObject
@@ -254,13 +257,17 @@ class DataClassMembersGenerator(
                     irLetS(
                         irGet(irPropertyType, receiver, getterSymbol)
                     ) { variable ->
+                        val get = irGet(irPropertyType, variable)
                         irIfNull(
                             context.irBuiltIns.intType,
                             irGet(irPropertyType, variable),
                             irInt(0),
                             getHashCodeOf(
                                 propertyType,
-                                irGet(irPropertyType, variable)
+                                if (irPropertyType.isMarkedNullable())
+                                    irImplicitCast(get, irPropertyType.makeNotNull())
+                                else
+                                    get
                             )
                         )
                     }
