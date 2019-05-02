@@ -41,15 +41,13 @@ interface IrCallGenerator {
     }
 
     fun genValueAndPut(
-        irValueParameter: IrValueParameter?,
+        irValueParameter: IrValueParameter,
         argumentExpression: IrExpression,
         parameterType: Type,
-        parameterIrType: IrType,
-        parameterIndex: Int,
         codegen: ExpressionCodegen,
         blockInfo: BlockInfo
     ) {
-        codegen.gen(argumentExpression, parameterType, parameterIrType, blockInfo)
+        codegen.gen(argumentExpression, parameterType, irValueParameter.type, blockInfo)
     }
 
     fun putValueIfNeeded(parameterType: Type, value: StackValue, kind: ValueKind, parameterIndex: Int, codegen: ExpressionCodegen) {

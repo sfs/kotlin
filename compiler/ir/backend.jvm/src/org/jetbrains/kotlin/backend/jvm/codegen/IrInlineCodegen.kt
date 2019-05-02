@@ -43,20 +43,18 @@ class IrInlineCodegen(
     }
 
     override fun genValueAndPut(
-        irValueParameter: IrValueParameter?,
+        irValueParameter: IrValueParameter,
         argumentExpression: IrExpression,
         parameterType: Type,
-        parameterIrType: IrType,
-        parameterIndex: Int,
         codegen: ExpressionCodegen,
         blockInfo: BlockInfo
     ) {
-        if (irValueParameter?.isInlineParameter() == true && isInlineIrExpression(argumentExpression)) {
+        if (irValueParameter.isInlineParameter() && isInlineIrExpression(argumentExpression)) {
             val irReference: IrFunctionReference =
                 (argumentExpression as IrBlock).statements.filterIsInstance<IrFunctionReference>().single()
             rememberClosure(irReference, parameterType, irValueParameter) as IrExpressionLambdaImpl
         } else {
-            putValueOnStack(argumentExpression, parameterType, irValueParameter?.index ?: -1, parameterIrType)
+            putValueOnStack(argumentExpression, parameterType, irValueParameter.index, irValueParameter.type)
         }
     }
 

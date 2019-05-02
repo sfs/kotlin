@@ -337,18 +337,11 @@ class ExpressionCodegen(
 
         val receiver = expression.dispatchReceiver
         receiver?.apply {
-            val (type, irType) = when {
-                isSuperCall -> receiver.asmType to receiver.type
-                else -> callable.dispatchReceiverType to callee.dispatchReceiverParameter?.type
-            }
-            if (type == null || irType == null)
-                throw AssertionError("No dispatch receiver type: ${expression.render()}")
             callGenerator.genValueAndPut(
-                callee.dispatchReceiverParameter,
+                callee.dispatchReceiverParameter!!,
                 this,
-                type,
-                irType,
-                -1,
+                if (isSuperCall) receiver.asmType else callable.dispatchReceiverType
+                    ?: throw AssertionError("No dispatch receiver type: ${expression.render()}"),
                 this@ExpressionCodegen,
                 data
             )
@@ -356,11 +349,9 @@ class ExpressionCodegen(
 
         expression.extensionReceiver?.apply {
             callGenerator.genValueAndPut(
-                callee.extensionReceiverParameter,
+                callee.extensionReceiverParameter!!,
                 this,
                 callable.extensionReceiverType!!,
-                callee.extensionReceiverParameter!!.type,
-                -1,
                 this@ExpressionCodegen,
                 data
             )
@@ -385,7 +376,7 @@ class ExpressionCodegen(
             val parameterType = callable.valueParameterTypes[i]
             when {
                 arg != null -> {
-                    callGenerator.genValueAndPut(irParameter, arg, parameterType, arg.type, i, this@ExpressionCodegen, data)
+                    callGenerator.genValueAndPut(irParameter, arg, parameterType, this@ExpressionCodegen, data)
                 }
                 irParameter.hasDefaultValue() -> {
                     callGenerator.putValueIfNeeded(
