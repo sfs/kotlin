@@ -746,21 +746,23 @@ class ExpressionCodegen(
             }
 
             IrTypeOperator.CAST, IrTypeOperator.SAFE_CAST -> {
-                expression.argument.accept(this, data).coerce(OBJECT_TYPE, expression.argument.type).materialize()
-                val boxedType = typeMapper.boxType(typeOperand)
+                val result = expression.argument.accept(this, data)
+                val boxedLeftType = result.irType?.let { typeMapper.boxType(it) } ?: OBJECT_TYPE
+                result.coerce(boxedLeftType, expression.argument.type).materialize()
+                val boxedRightType = typeMapper.boxType(typeOperand)
 
                 if (typeOperand.isReifiedTypeParameter) {
                     putReifiedOperationMarkerIfTypeIsReifiedParameter(
                         typeOperand, if (IrTypeOperator.SAFE_CAST == expression.operator) SAFE_AS else AS, mv, this
                     )
-                    v.checkcast(boxedType)
+                    v.checkcast(boxedRightType)
                 } else {
                     generateAsCast(
-                        mv, kotlinType, boxedType, expression.operator == IrTypeOperator.SAFE_CAST,
+                        mv, kotlinType, boxedRightType, expression.operator == IrTypeOperator.SAFE_CAST,
                         state.languageVersionSettings.isReleaseCoroutines()
                     )
                 }
-                MaterialValue(mv, boxedType, expression.argument.type).coerce(expression.asmType, expression.typeOperand)
+                MaterialValue(mv, boxedRightType, expression.argument.type).coerce(expression.asmType, expression.typeOperand)
             }
 
             IrTypeOperator.INSTANCEOF, IrTypeOperator.NOT_INSTANCEOF -> {
