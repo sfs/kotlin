@@ -73,14 +73,14 @@ class IrInlineCodegen(
     }
 
     private fun putCapturedValueOnStack(argumentExpression: IrExpression, valueType: Type, capturedParamIndex: Int) {
-        val onStack = codegen.gen(argumentExpression, valueType, BlockInfo.create(), argumentExpression.type)
+        val onStack = codegen.gen(argumentExpression, valueType, argumentExpression.type, BlockInfo.create())
         putArgumentOrCapturedToLocalVal(
             JvmKotlinType(onStack.type, onStack.kotlinType), onStack, capturedParamIndex, capturedParamIndex, ValueKind.CAPTURED
         )
     }
 
     private fun putValueOnStack(argumentExpression: IrExpression, valueType: Type, paramIndex: Int, irType: IrType) {
-        val onStack = codegen.gen(argumentExpression, valueType, BlockInfo.create(), irType)
+        val onStack = codegen.gen(argumentExpression, valueType, irType, BlockInfo.create())
         putArgumentOrCapturedToLocalVal(JvmKotlinType(onStack.type, onStack.kotlinType), onStack, -1, paramIndex, ValueKind.CAPTURED)
     }
 

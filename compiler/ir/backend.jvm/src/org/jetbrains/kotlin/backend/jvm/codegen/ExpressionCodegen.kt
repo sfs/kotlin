@@ -148,7 +148,7 @@ class ExpressionCodegen(
     }
 
     // TODO remove
-    fun gen(expression: IrExpression, type: Type, data: BlockInfo, irType: IrType): StackValue {
+    fun gen(expression: IrExpression, type: Type, irType: IrType, data: BlockInfo): StackValue {
         expression.accept(this, data).coerce(type, irType).materialize()
         return StackValue.onStack(type, irType.toKotlinType())
     }
@@ -328,7 +328,7 @@ class ExpressionCodegen(
 
     fun generateCall(
         expression: IrFunctionAccessExpression,
-        callable: IrCallable,
+        callable: Callable,
         data: BlockInfo,
         isSuperCall: Boolean = false
     ): PromisedValue {
@@ -339,15 +339,31 @@ class ExpressionCodegen(
         receiver?.apply {
             val (type, irType) = when {
                 isSuperCall -> receiver.asmType to receiver.type
-                else -> callable.dispatchReceiverType to callable.dispatchReceiverIrType
+                else -> callable.dispatchReceiverType to callee.dispatchReceiverParameter?.type
             }
             if (type == null || irType == null)
                 throw AssertionError("No dispatch receiver type: ${expression.render()}")
-            callGenerator.genValueAndPut(null, this, type, irType, -1, this@ExpressionCodegen, data)
+            callGenerator.genValueAndPut(
+                callee.dispatchReceiverParameter,
+                this,
+                type,
+                irType,
+                -1,
+                this@ExpressionCodegen,
+                data
+            )
         }
 
         expression.extensionReceiver?.apply {
-            callGenerator.genValueAndPut(null, this, callable.extensionReceiverType!!, callable.extensionReceiverIrType!!, -1, this@ExpressionCodegen, data)
+            callGenerator.genValueAndPut(
+                callee.extensionReceiverParameter,
+                this,
+                callable.extensionReceiverType!!,
+                callee.extensionReceiverParameter!!.type,
+                -1,
+                this@ExpressionCodegen,
+                data
+            )
         }
 
         callGenerator.beforeValueParametersStart()
@@ -1077,10 +1093,8 @@ class ExpressionCodegen(
         return classReference.onStack
     }
 
-    private fun resolveToCallable(irCall: IrFunctionAccessExpression, isSuper: Boolean): IrCallable {
-        val kotlinCallable = typeMapper.mapToCallableMethod(irCall.symbol.owner, isSuper)
-        return IrCallableImpl(kotlinCallable, irCall.dispatchReceiver?.type, irCall.extensionReceiver?.type, irCall.type)
-    }
+    private fun resolveToCallable(irCall: IrFunctionAccessExpression, isSuper: Boolean) =
+        typeMapper.mapToCallableMethod(irCall.symbol.owner, isSuper)
 
     private fun getOrCreateCallGenerator(
         irFunction: IrFunction,

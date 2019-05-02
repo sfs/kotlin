@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.backend.jvm.codegen
 
 import org.jetbrains.kotlin.codegen.Callable
+import org.jetbrains.kotlin.codegen.CallableMethod
 import org.jetbrains.kotlin.codegen.StackValue
 import org.jetbrains.kotlin.codegen.ValueKind
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
@@ -27,11 +28,11 @@ import org.jetbrains.org.objectweb.asm.Type
 
 interface IrCallGenerator {
 
-    fun genCall(callable: Callable, callDefault: Boolean, codegen: ExpressionCodegen, expression: IrFunctionAccessExpression) {
+    fun genCall(callableMethod: Callable, callDefault: Boolean, codegen: ExpressionCodegen, expression: IrFunctionAccessExpression) {
         if (!callDefault) {
-            callable.genInvokeInstruction(codegen.mv)
+            callableMethod.genInvokeInstruction(codegen.mv)
         } else {
-            callable.toCallableMethod().genInvokeDefaultInstruction(codegen.mv)
+            (callableMethod as CallableMethod).genInvokeDefaultInstruction(codegen.mv)
         }
     }
 
@@ -48,7 +49,7 @@ interface IrCallGenerator {
         codegen: ExpressionCodegen,
         blockInfo: BlockInfo
     ) {
-        codegen.gen(argumentExpression, parameterType, blockInfo, parameterIrType)
+        codegen.gen(argumentExpression, parameterType, parameterIrType, blockInfo)
     }
 
     fun putValueIfNeeded(parameterType: Type, value: StackValue, kind: ValueKind, parameterIndex: Int, codegen: ExpressionCodegen) {
