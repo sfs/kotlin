@@ -661,7 +661,7 @@ class ExpressionCodegen(
                 mv,
                 this
             )
-            mv.newarray(boxType(elementIrType.asmType, elementIrType.toKotlinType(), typeMapper.kotlinTypeMapper))
+            mv.newarray(typeMapper.boxType(elementIrType))
         } else {
             val type = typeMapper.mapType(arrayType)
             mv.newarray(correctElementType(type))
@@ -742,7 +742,6 @@ class ExpressionCodegen(
 
     override fun visitTypeOperator(expression: IrTypeOperatorCall, data: BlockInfo): PromisedValue {
         val typeOperand = expression.typeOperand
-        val asmType = typeOperand.asmType
         val kotlinType = typeOperand.toKotlinType()
         return when (expression.operator) {
             IrTypeOperator.IMPLICIT_COERCION_TO_UNIT -> {
@@ -757,7 +756,7 @@ class ExpressionCodegen(
 
             IrTypeOperator.CAST, IrTypeOperator.SAFE_CAST -> {
                 expression.argument.accept(this, data).coerce(OBJECT_TYPE, expression.argument.type).materialize()
-                val boxedType = boxType(asmType, kotlinType, typeMapper.kotlinTypeMapper)
+                val boxedType = typeMapper.boxType(typeOperand)
 
                 if (typeOperand.isReifiedTypeParameter) {
                     putReifiedOperationMarkerIfTypeIsReifiedParameter(
@@ -775,7 +774,7 @@ class ExpressionCodegen(
 
             IrTypeOperator.INSTANCEOF, IrTypeOperator.NOT_INSTANCEOF -> {
                 expression.argument.accept(this, data).coerce(OBJECT_TYPE, context.irBuiltIns.anyNType).materialize()
-                val type = boxType(asmType, kotlinType, typeMapper.kotlinTypeMapper)
+                val type = typeMapper.boxType(typeOperand)
                 if (typeOperand.isReifiedTypeParameter) {
                     putReifiedOperationMarkerIfTypeIsReifiedParameter(typeOperand, ReifiedTypeInliner.OperationKind.IS, mv, this)
                     v.instanceOf(type)
