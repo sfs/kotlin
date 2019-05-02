@@ -7,10 +7,7 @@ package org.jetbrains.kotlin.backend.jvm.lower.inlineclasses
 
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedValueParameterDescriptor
-import org.jetbrains.kotlin.backend.common.ir.classIfConstructor
-import org.jetbrains.kotlin.backend.common.ir.copyTo
-import org.jetbrains.kotlin.backend.common.ir.copyTypeParametersFrom
-import org.jetbrains.kotlin.backend.common.ir.remapTypeParameters
+import org.jetbrains.kotlin.backend.common.ir.*
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.declarations.*
@@ -145,6 +142,7 @@ object InlineClassAbi {
             Modality.FINAL, boxedType, isInline = false, isExternal = false,
             isTailrec = false, isSuspend = false
         ).also { function ->
+            function.copyTypeParametersFrom(inlinedClass)
             function.valueParameters.add(WrappedValueParameterDescriptor().let {
                 IrValueParameterImpl(
                     startOffset, endOffset,

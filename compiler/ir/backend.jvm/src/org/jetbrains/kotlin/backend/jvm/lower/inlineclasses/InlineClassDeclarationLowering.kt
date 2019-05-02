@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.jvm.lower.inlineclasses
 
 import org.jetbrains.kotlin.backend.common.BackendContext
 import org.jetbrains.kotlin.backend.common.ir.copyTo
+import org.jetbrains.kotlin.backend.common.ir.copyTypeParametersFrom
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irBlockBody
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -333,7 +334,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
             returnType = irConstructor.returnType
         }.apply {
             parent = irClass
-            // annotations += irConstructor.annotations
+            copyTypeParametersFrom(irConstructor)
             valueParameters += irConstructor.valueParameters.map { p ->
                 p.copyTo(this)
             }
@@ -355,8 +356,9 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
 
         function.body = builder.irBlockBody(function) {
             val valueToBox = function.valueParameters[0]
-            +irReturn(irCall(constructor.symbol, IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR).also {
-                it.putValueArgument(0, irGet(valueToBox))
+            +irReturn(irCall(constructor.symbol, IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR).apply {
+                function.typeParameters.forEach { putTypeArgument(it.index, it.defaultType) }
+                putValueArgument(0, irGet(valueToBox))
             })
         }
 
