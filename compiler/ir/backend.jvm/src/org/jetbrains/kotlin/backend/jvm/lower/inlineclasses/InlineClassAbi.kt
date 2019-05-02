@@ -203,7 +203,9 @@ object InlineClassAbi {
     }
 
     private fun createMethodReplacement(function: IrFunction): IrReplacementFunction? {
-        assert(function.dispatchReceiverParameter != null)
+        if (function.dispatchReceiverParameter == null || function !is IrSimpleFunction) {
+            throw IllegalStateException("Method override for a static function")
+        }
 
         val descriptor = WrappedSimpleFunctionDescriptor(
             function.descriptor.annotations,
@@ -215,10 +217,8 @@ object InlineClassAbi {
         val replacement = IrFunctionImpl(
             function.startOffset, function.endOffset, function.origin,
             symbol, mangledNameFor(function), function.visibility,
-            function.safeAs<IrSimpleFunction>()?.modality ?: Modality.FINAL,
-            function.returnType, function.isInline, function.isExternal,
-            (function is IrSimpleFunction && function.isTailrec),
-            (function is IrSimpleFunction && function.isSuspend)
+            function.modality, function.returnType, function.isInline, function.isExternal,
+            function.isTailrec, function.isSuspend
         ).apply {
             descriptor.bind(this)
             parent = function.parent
@@ -296,7 +296,7 @@ object InlineClassAbi {
         }
 
         val suffix = when {
-            irFunction.extensionReceiverParameter?.type?.isInlined() == true || irFunction.valueParameters.any { it.type.isInlined() } ->
+            irFunction.fullValueParameterList.any { it.type.isInlined() } ->
                 hashSuffix(irFunction)
             (irFunction.parent as? IrClass)?.isInline == true -> "impl"
             else -> return irFunction.name
@@ -306,7 +306,7 @@ object InlineClassAbi {
     }
 
     private fun hashSuffix(irFunction: IrFunction) =
-        md5base64(irFunction.fullParameterList.joinToString { it.type.eraseToString() })
+        md5base64(irFunction.fullValueParameterList.joinToString { it.type.eraseToString() })
 
     private fun IrType.eraseToString() = buildString {
         append('L')
@@ -341,6 +341,9 @@ private val IrFunction.hasMethodReplacement: Boolean
 
 private val IrFunction.fullParameterList: List<IrValueParameter>
     get() = listOfNotNull(dispatchReceiverParameter, extensionReceiverParameter) + valueParameters
+
+private val IrFunction.fullValueParameterList: List<IrValueParameter>
+    get() = listOfNotNull(extensionReceiverParameter) + valueParameters
 
 val IrFunction.isInlineClassFieldGetter: Boolean
     get() = (parent as? IrClass)?.isInline == true && this is IrSimpleFunction &&

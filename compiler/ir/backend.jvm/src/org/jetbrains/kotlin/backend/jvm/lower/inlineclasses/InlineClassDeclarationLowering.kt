@@ -106,7 +106,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
         }
 
         // Don't create a wrapper for functions which are only used in an unboxed context
-        if (function.overriddenSymbols.isEmpty()) // && function.origin != IrDeclarationOrigin.BRIDGE)
+        if (function.overriddenSymbols.isEmpty() || worker.dispatchReceiverParameter != null)
             return listOf(worker)
 
         // Replace the function body with a wrapper
