@@ -240,6 +240,7 @@ object InlineClassAbi {
             }
 
             annotations += function.annotations
+            metadata = function.metadata
         }
 
         if (replacement.origin == IrDeclarationOrigin.FAKE_OVERRIDE && replacement.overriddenSymbols.isEmpty())
@@ -275,6 +276,8 @@ object InlineClassAbi {
                 valueParameters.add(newParameter)
                 parameterMap[parameter.symbol] = newParameter
             }
+            if (function !is IrSimpleFunction || function.overriddenSymbols.isEmpty())
+                metadata = function.metadata
         }
 
         return IrReplacementFunction(replacement, parameterMap)
