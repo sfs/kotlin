@@ -234,8 +234,12 @@ open class InsertImplicitCasts(
             valueType.isNullabilityFlexible() && valueType.containsNull() && !expectedType.containsNull() ->
                 implicitNonNull(valueType, expectedType)
 
-            KotlinTypeChecker.DEFAULT.isSubtypeOf(valueType, expectedType.makeNullable()) ->
-                this
+            KotlinTypeChecker.DEFAULT.isSubtypeOf(valueType, expectedType.makeNullable()) -> {
+                if (valueType.containsNull() && !expectedType.containsNull())
+                    implicitCast(expectedType, IrTypeOperator.IMPLICIT_CAST)
+                else
+                    this
+            }
 
             KotlinBuiltIns.isInt(valueType) && notNullableExpectedType.isBuiltInIntegerType() ->
                 implicitCast(notNullableExpectedType, IrTypeOperator.IMPLICIT_INTEGER_COERCION)

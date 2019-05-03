@@ -57,7 +57,7 @@ object InlineClassAbi {
     val getReplacementFunction: (IrFunction) -> IrReplacementFunction? =
         storageManager.createMemoizedFunctionWithNullableValues {
             when {
-                !it.isBoxed || it.isSyntheticInlineClassMember -> null
+                !it.isBoxed || it.isSyntheticInlineClassMember || it.origin == IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA -> null
                 it.hasMethodReplacement -> createMethodReplacement(it)
                 it.hasStaticReplacement -> createStaticReplacement(it)
                 else -> null
