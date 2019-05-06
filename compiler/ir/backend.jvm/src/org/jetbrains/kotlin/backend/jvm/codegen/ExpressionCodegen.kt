@@ -817,14 +817,14 @@ class ExpressionCodegen(
             arity == 1 -> {
                 // Convert single arg to string.
                 val arg = expression.arguments[0]
-                val result = arg.accept(this, data).coerce(OBJECT_TYPE, arg.type).materialized
+                val result = arg.accept(this, data).coerceToBoxed(arg.type).materialized
                 if (!arg.type.isString())
                     AsmUtil.genToString(StackValue.onStack(result.type), result.type, result.kotlinType, typeMapper.kotlinTypeMapper).put(expression.asmType, mv)
             }
             arity == 2 && expression.arguments[0].type.isStringClassType() -> {
                 // Call the stringPlus intrinsic
                 expression.arguments.forEach {
-                    val result = it.accept(this, data).coerce(OBJECT_TYPE, it.type).materialized
+                    val result = it.accept(this, data).coerceToBoxed(it.type).materialized
                     val type = result.type
                     if (type.sort != Type.OBJECT)
                         AsmUtil.genToString(StackValue.onStack(type), type, result.kotlinType, typeMapper.kotlinTypeMapper).put(expression.asmType, mv)
@@ -840,7 +840,7 @@ class ExpressionCodegen(
                 // Use StringBuilder to concatenate.
                 genStringBuilderConstructor(mv)
                 expression.arguments.forEach {
-                    genInvokeAppendMethod(mv, it.accept(this, data).coerce(OBJECT_TYPE, it.type).materialized.type, null)
+                    genInvokeAppendMethod(mv, it.accept(this, data).coerceToBoxed(it.type).materialized.type, null)
                 }
                 mv.invokevirtual("java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false)
             }

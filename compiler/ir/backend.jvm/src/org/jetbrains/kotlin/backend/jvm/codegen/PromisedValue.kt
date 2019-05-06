@@ -120,6 +120,9 @@ fun PromisedValue.coerce(target: Type, irTarget: IrType?): PromisedValue {
     }
 }
 
+fun PromisedValue.coerceToBoxed(irTarget: IrType) =
+    coerce(typeMapper.boxType(irTarget), irTarget)
+
 // Same as above, but with a return type that allows conditional jumping.
 fun PromisedValue.coerceToBoolean() = when (val coerced = coerce(Type.BOOLEAN_TYPE, null)) {
     is BooleanValue -> coerced
