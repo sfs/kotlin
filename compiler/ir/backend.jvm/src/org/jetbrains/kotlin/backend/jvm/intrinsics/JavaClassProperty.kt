@@ -17,23 +17,31 @@
 package org.jetbrains.kotlin.backend.jvm.intrinsics
 
 import org.jetbrains.kotlin.backend.jvm.codegen.*
-import org.jetbrains.kotlin.codegen.AsmUtil.boxType
 import org.jetbrains.kotlin.codegen.AsmUtil.isPrimitive
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
+import org.jetbrains.kotlin.ir.util.isInlined
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.org.objectweb.asm.Type
 
 object JavaClassProperty : IntrinsicMethod() {
+    private fun invokeGetClass(value: PromisedValue) {
+        value.materialize()
+        value.mv.invokevirtual("java/lang/Object", "getClass", "()Ljava/lang/Class;", false)
+    }
+
     fun invokeWith(value: PromisedValue) {
-        if (value.type == Type.VOID_TYPE) {
-            return invokeWith(value.coerce(AsmTypes.UNIT_TYPE, null))
-        }
-        if (isPrimitive(value.type)) {
-            value.discard()
-            value.mv.getstatic(boxType(value.type).internalName, "TYPE", "Ljava/lang/Class;")
-        } else {
-            value.materialize()
-            value.mv.invokevirtual("java/lang/Object", "getClass", "()Ljava/lang/Class;", false)
+        val irType = value.irType
+        when {
+            value.type == Type.VOID_TYPE ->
+                invokeGetClass(value.coerce(AsmTypes.UNIT_TYPE, null))
+            irType?.isInlined() == true ->
+                invokeGetClass(value.coerce(value.typeMapper.boxType(irType), irType))
+            isPrimitive(value.type) -> {
+                value.discard()
+                value.mv.getstatic(value.type.internalName, "TYPE", "Ljava/lang/Class;")
+            }
+            else ->
+                invokeGetClass(value)
         }
     }
 
