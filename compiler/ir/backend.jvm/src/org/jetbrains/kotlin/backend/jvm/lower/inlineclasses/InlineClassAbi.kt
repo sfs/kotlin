@@ -350,9 +350,12 @@ private val IrFunction.fullParameterList: List<IrValueParameter>
 private val IrFunction.fullValueParameterList: List<IrValueParameter>
     get() = listOfNotNull(extensionReceiverParameter) + valueParameters
 
+private val IrClass.inlineClassFieldName: Name
+    get() = constructors.single { it.isPrimary }.valueParameters.single().name
+
 val IrFunction.isInlineClassFieldGetter: Boolean
     get() = (parent as? IrClass)?.isInline == true && this is IrSimpleFunction &&
-            correspondingPropertySymbol?.let { it.owner.backingField != null && it.owner.getter == this } == true
+            correspondingPropertySymbol?.let { it.owner.getter == this && it.owner.name == parentAsClass.inlineClassFieldName } == true
 
 private val IrFunction.isSyntheticInlineClassMember: Boolean
     get() = origin == IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER || isInlineClassFieldGetter
