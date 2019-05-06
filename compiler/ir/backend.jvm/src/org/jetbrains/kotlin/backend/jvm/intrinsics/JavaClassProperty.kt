@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.backend.jvm.intrinsics
 
 import org.jetbrains.kotlin.backend.jvm.codegen.*
+import org.jetbrains.kotlin.codegen.AsmUtil.boxType
 import org.jetbrains.kotlin.codegen.AsmUtil.isPrimitive
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.util.isInlined
@@ -35,10 +36,10 @@ object JavaClassProperty : IntrinsicMethod() {
             value.type == Type.VOID_TYPE ->
                 invokeGetClass(value.coerce(AsmTypes.UNIT_TYPE, null))
             irType?.isInlined() == true ->
-                invokeGetClass(value.coerce(value.typeMapper.boxType(irType), irType))
+                invokeGetClass(value.coerceToBoxed(irType))
             isPrimitive(value.type) -> {
                 value.discard()
-                value.mv.getstatic(value.type.internalName, "TYPE", "Ljava/lang/Class;")
+                value.mv.getstatic(boxType(value.type).internalName, "TYPE", "Ljava/lang/Class;")
             }
             else ->
                 invokeGetClass(value)
