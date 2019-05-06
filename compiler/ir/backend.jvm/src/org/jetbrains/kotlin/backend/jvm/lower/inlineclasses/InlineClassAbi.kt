@@ -46,7 +46,7 @@ val IrType.isBoxed: Boolean
  * Check if a function can be replaced.
  */
 val IrFunction.isBoxed: Boolean
-    get() = fullParameterList.any { it.type.isBoxed } || (this is IrConstructor && constructedClass.isInline)
+    get() = fullParameterList.any { it.type.erasedUpperBound.isInline } || (this is IrConstructor && constructedClass.isInline)
 
 object InlineClassAbi {
     private val storageManager = LockBasedStorageManager("inline-class-abi")
@@ -108,7 +108,7 @@ object InlineClassAbi {
         //     inline class B(val y: A)
         //
         // We reduce B? to String?, but according to the spec it is reduced to A?
-        val underlyingType = getUnderlyingType(klass)
+        val underlyingType = getUnderlyingType(klass).unbox()
         if (!type.isNullable())
             return underlyingType
         if (underlyingType.isNullable() || underlyingType.isPrimitiveType())
@@ -120,12 +120,11 @@ object InlineClassAbi {
     // primary constructor. This is what the current jvm backend does.
     //
     // Looking for a backing field does not work for built-in inline classes (UInt, etc.),
-    // which don't contain a field.
-    private val getUnderlyingType: (IrClass) -> IrType =
-        storageManager.createMemoizedFunction { irClass ->
-            val primaryConstructor = irClass.constructors.single { it.isPrimary }
-            primaryConstructor.valueParameters[0].type.unbox()
-        }
+    // which don't contain a field
+    fun getUnderlyingType(irClass: IrClass): IrType {
+        val primaryConstructor = irClass.constructors.single { it.isPrimary }
+        return primaryConstructor.valueParameters[0].type
+    }
 
     private fun createBoxFunction(inlinedClass: IrClass): IrSimpleFunction {
         val unboxedType = getUnderlyingType(inlinedClass)
@@ -299,7 +298,7 @@ object InlineClassAbi {
         }
 
         val suffix = when {
-            irFunction.fullValueParameterList.any { it.type.isInlined() } ->
+            irFunction.fullValueParameterList.any { it.type.erasedUpperBound.isInline } ->
                 hashSuffix(irFunction)
             (irFunction.parent as? IrClass)?.isInline == true -> "impl"
             else -> return irFunction.name

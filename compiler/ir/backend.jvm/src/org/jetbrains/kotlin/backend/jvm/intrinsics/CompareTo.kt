@@ -67,7 +67,7 @@ object CompareTo : IntrinsicMethod() {
     }
 }
 
-class BooleanComparison(val op: IElementType, val a: MaterialValue, val b: MaterialValue) : BooleanValue(a.mv) {
+class BooleanComparison(val op: IElementType, val a: MaterialValue, val b: MaterialValue) : BooleanValue(a.codegen) {
     override fun jumpIfFalse(target: Label) {
         // TODO 1. get rid of the dependency; 2. take `b.type` into account.
         val opcode = if (a.type.sort == Type.OBJECT)

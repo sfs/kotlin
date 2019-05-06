@@ -130,7 +130,7 @@ class ExpressionCodegen(
     // Assume this expression's result has already been materialized on the stack
     // with the correct type.
     val IrExpression.onStack: MaterialValue
-        get() = MaterialValue(mv, asmType, type)
+        get() = MaterialValue(this@ExpressionCodegen, asmType, type)
 
     private fun markNewLabel() = Label().apply { mv.visitLabel(this) }
 
@@ -258,11 +258,9 @@ class ExpressionCodegen(
         val function = expression.symbol.owner
         val argument = expression.getValueArgument(0) ?: function.valueParameters[0].defaultValue!!
         val argumentType = function.valueParameters[0].type
-        return argument
-            .accept(this, data)
-            .coerce(argumentType.asmType, argumentType)
-            .coerce(function.returnType.asmType, function.returnType)
-            .materialized
+        val value = argument.accept(this, data).coerce(argumentType.asmType, argumentType).materialized
+        value.irType = function.returnType
+        return value
     }
 
     override fun visitDelegatingConstructorCall(expression: IrDelegatingConstructorCall, data: BlockInfo): PromisedValue {
@@ -281,11 +279,9 @@ class ExpressionCodegen(
         if (expression.symbol.owner.isInlineClassFieldGetter) {
             val argument = expression.dispatchReceiver!!
             val type = expression.symbol.owner.dispatchReceiverParameter!!.type
-            return argument
-                .accept(this, data)
-                .coerce(expression.asmType, type)
-                .coerce(expression.asmType, expression.type)
-                .materialized
+            val value = argument.accept(this, data).coerce(type.asmType, type).materialized
+            value.irType = expression.type
+            return value
         }
         return generateCall(expression, expression.superQualifierSymbol, data)
     }
@@ -299,7 +295,7 @@ class ExpressionCodegen(
                 mv.anew(type)
                 mv.dup()
                 generateCall(expression, null, data)
-                MaterialValue(mv, type, expression.type)
+                MaterialValue(this, type, expression.type)
             }
         }
     }
@@ -412,18 +408,21 @@ class ExpressionCodegen(
             expression
         )
 
-        val returnType = callee.returnType.substitute(typeSubstitutionMap)
-        if (returnType.isNothing()) {
-            mv.aconst(null)
-            mv.athrow()
-            return voidValue
-        } else if (callee is IrConstructor) {
-            return voidValue
-        } else if (expression.type.isUnit()) {
-            // NewInference allows casting `() -> T` to `() -> Unit`. A CHECKCAST here will fail.
-            return MaterialValue(mv, callable.returnType, null).discard().coerce(expression.asmType, expression.type)
+        val returnType = callee.returnType
+        return when {
+            returnType.substitute(typeSubstitutionMap).isNothing() -> {
+                mv.aconst(null)
+                mv.athrow()
+                voidValue
+            }
+            callee is IrConstructor ->
+                voidValue
+            expression.type.isUnit() ->
+                // NewInference allows casting `() -> T` to `() -> Unit`. A CHECKCAST here will fail.
+                MaterialValue(this, callable.returnType, null).discard().coerce(expression.asmType, expression.type)
+            else ->
+                MaterialValue(this, callable.returnType, returnType).coerce(expression.asmType, expression.type)
         }
-        return MaterialValue(mv, callable.returnType, expression.type).coerce(expression.asmType, expression.type)
     }
 
     override fun visitVariable(declaration: IrVariable, data: BlockInfo): PromisedValue {
@@ -449,7 +448,7 @@ class ExpressionCodegen(
             expression.markLineNumber(startOffset = true)
         val type = frameMap.typeOf(expression.symbol)
         mv.load(findLocalIndex(expression.symbol), type)
-        return MaterialValue(mv, type, expression.type)
+        return MaterialValue(this, type, expression.type)
     }
 
     override fun visitFieldAccess(expression: IrFieldAccessExpression, data: BlockInfo): PromisedValue {
@@ -482,7 +481,7 @@ class ExpressionCodegen(
                     Unit
                 else -> mv.getfield(ownerType, fieldName, fieldType.descriptor)
             }
-            MaterialValue(mv, fieldType, expression.symbol.owner.type).coerce(expression.asmType, expression.type)
+            MaterialValue(this, fieldType, expression.symbol.owner.type).coerce(expression.asmType, expression.type)
         }
     }
 
@@ -533,7 +532,7 @@ class ExpressionCodegen(
     override fun <T> visitConst(expression: IrConst<T>, data: BlockInfo): PromisedValue {
         expression.markLineNumber(startOffset = true)
         when (val value = expression.value) {
-            is Boolean -> return object : BooleanValue(mv) {
+            is Boolean -> return object : BooleanValue(this) {
                 override fun jumpIfFalse(target: Label) = if (value) Unit else mv.goTo(target)
                 override fun jumpIfTrue(target: Label) = if (value) mv.goTo(target) else Unit
                 override fun materialize() = mv.iconst(if (value) 1 else 0)
@@ -762,7 +761,7 @@ class ExpressionCodegen(
                         state.languageVersionSettings.isReleaseCoroutines()
                     )
                 }
-                MaterialValue(mv, boxedRightType, expression.argument.type).coerce(expression.asmType, expression.typeOperand)
+                MaterialValue(this, boxedRightType, expression.type).coerce(expression.asmType, expression.type)
             }
 
             IrTypeOperator.INSTANCEOF, IrTypeOperator.NOT_INSTANCEOF -> {
