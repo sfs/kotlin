@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.types.toKotlinType
+import org.jetbrains.kotlin.ir.util.isInlined
 import org.jetbrains.kotlin.ir.util.isNullConst
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
@@ -43,9 +44,10 @@ class Equals(val operator: IElementType) : IntrinsicMethod() {
         val rightType = with(codegen) { b.asmType }
         val opToken = expression.origin
         val useEquals = opToken !== IrStatementOrigin.EQEQEQ && opToken !== IrStatementOrigin.EXCLEQEQ &&
+                (a.type.isInlined() || b.type.isInlined() ||
                 // `==` is `equals` for objects and floating-point numbers. In the latter case, the difference
                 // is that `equals` is a total order (-0 < +0 and NaN == NaN) and `===` is IEEE754-compliant.
-                (!isPrimitive(leftType) || leftType != rightType || leftType == Type.FLOAT_TYPE || leftType == Type.DOUBLE_TYPE)
+                !isPrimitive(leftType) || leftType != rightType || leftType == Type.FLOAT_TYPE || leftType == Type.DOUBLE_TYPE)
         val operandType = if (!isPrimitive(leftType) || useEquals) AsmTypes.OBJECT_TYPE else leftType
         val aValue = a.accept(codegen, data).coerce(operandType, a.type).materialized
         val bValue = b.accept(codegen, data).coerce(operandType, b.type).materialized
