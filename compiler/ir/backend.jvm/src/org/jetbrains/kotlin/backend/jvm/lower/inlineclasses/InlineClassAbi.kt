@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.utils.DFS
@@ -282,17 +283,16 @@ object InlineClassAbi {
         return IrReplacementFunction(replacement, parameterMap)
     }
 
-    // Naming scheme
-    // - Statically lowered constructors are named constructor-impl
-    // - a function "f" without boxed parameters is named "f-impl"
-    // - all other functions "f" are renamed to "f-hash"
     private fun mangledNameFor(irFunction: IrFunction): Name {
         val base = when {
             irFunction is IrConstructor ->
                 "constructor"
+            irFunction.isGetter ->
+                JvmAbi.getterName(irFunction.propertyName.asString())
+            irFunction.isSetter ->
+                JvmAbi.setterName(irFunction.propertyName.asString())
             irFunction.name.isSpecial ->
-                // HACK: strip leading < and trailing >
-                irFunction.name.asString().let { it.substring(1 until it.length - 1) }
+                error("Unhandled special name in mangledNameFor: ${irFunction.name}")
             else ->
                 irFunction.name.asString()
         }
@@ -306,6 +306,9 @@ object InlineClassAbi {
 
         return Name.identifier("$base-$suffix")
     }
+
+    private val IrFunction.propertyName: Name
+        get() = (this as IrSimpleFunction).correspondingPropertySymbol!!.owner.name
 
     private fun hashSuffix(irFunction: IrFunction) =
         md5base64(irFunction.fullValueParameterList.joinToString { it.type.eraseToString() })
