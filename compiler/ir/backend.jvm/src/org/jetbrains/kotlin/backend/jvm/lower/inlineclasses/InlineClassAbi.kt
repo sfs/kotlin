@@ -38,19 +38,37 @@ class IrReplacementFunction(
 fun IrType.unbox() = InlineClassAbi.unboxType(this) ?: this
 
 /**
- * Check if the type can be unboxed.
- */
-val IrType.isBoxed: Boolean
-    get() = InlineClassAbi.unboxType(this) != null
-
-/**
  * Check if a function can be replaced.
  */
 val IrFunction.isBoxed: Boolean
     get() = fullParameterList.any { it.type.erasedUpperBound.isInline } || (this is IrConstructor && constructedClass.isInline)
 
 object InlineClassAbi {
-    private val storageManager = LockBasedStorageManager("inline-class-abi")
+    internal fun unboxType(type: IrType): IrType? {
+        val klass = type.classOrNull?.owner ?: return null
+        if (!klass.isInline) return null
+
+        val underlyingType = getUnderlyingType(klass).unbox()
+        if (!type.isNullable())
+            return underlyingType
+        if (underlyingType.isNullable() || underlyingType.isPrimitiveType())
+            return null
+        return underlyingType.makeNullable()
+    }
+
+    // Get the underlying type of an inline class based on the single argument to its
+    // primary constructor. This is what the current jvm backend does.
+    //
+    // Looking for a backing field does not work for built-in inline classes (UInt, etc.),
+    // which don't contain a field
+    fun getUnderlyingType(irClass: IrClass): IrType {
+        val primaryConstructor = irClass.constructors.single { it.isPrimary }
+        return primaryConstructor.valueParameters[0].type
+    }
+}
+
+class InlineClassManager {
+    private val storageManager = LockBasedStorageManager("inline-class-manager")
 
     /**
      * Get a replacement for a function or a constructor.
@@ -92,43 +110,9 @@ object InlineClassAbi {
             createUnboxFunction(irClass)
         }
 
-    internal fun unboxType(type: IrType): IrType? {
-        val klass = type.classOrNull?.owner ?: return null
-        if (!klass.isInline) return null
-
-        // We deviate slightly from the spec by unfolding the underlying type eagerly.
-        // Non-nullable IC types are always unfolded. Nullable IC types are only unfolded
-        // if the underlying type isn't nullable or primitive. If the underlying type
-        // is a non-nullable non-primitive type we unfold to its nullable version.
-        // At least on the JVM this avoids boxing, since every such type is nullable.
-        //
-        // This implementation differs from the spec in some corner cases, e.g.,
-        // what happens if we have a nullable IC type containing a non-nullable IC field?
-        //
-        //     inline class A(val x: String)
-        //     inline class B(val y: A)
-        //
-        // We reduce B? to String?, but according to the spec it is reduced to A?
-        val underlyingType = getUnderlyingType(klass).unbox()
-        if (!type.isNullable())
-            return underlyingType
-        if (underlyingType.isNullable() || underlyingType.isPrimitiveType())
-            return null
-        return underlyingType.makeNullable()
-    }
-
-    // Get the underlying type of an inline class based on the single argument to its
-    // primary constructor. This is what the current jvm backend does.
-    //
-    // Looking for a backing field does not work for built-in inline classes (UInt, etc.),
-    // which don't contain a field
-    fun getUnderlyingType(irClass: IrClass): IrType {
-        val primaryConstructor = irClass.constructors.single { it.isPrimary }
-        return primaryConstructor.valueParameters[0].type
-    }
 
     private fun createBoxFunction(inlinedClass: IrClass): IrSimpleFunction {
-        val unboxedType = getUnderlyingType(inlinedClass)
+        val unboxedType = InlineClassAbi.getUnderlyingType(inlinedClass)
         val boxedType = inlinedClass.defaultType
 
         val startOffset = inlinedClass.startOffset
@@ -165,8 +149,7 @@ object InlineClassAbi {
     }
 
     private fun createUnboxFunction(inlinedClass: IrClass): IrSimpleFunction {
-        //val unboxedType = getInlineClassBackingField(inlinedClass).type.unbox()
-        val unboxedType = getUnderlyingType(inlinedClass)
+        val unboxedType = InlineClassAbi.getUnderlyingType(inlinedClass)
         val boxedType = inlinedClass.defaultType
 
         val startOffset = inlinedClass.startOffset
@@ -332,20 +315,20 @@ object InlineClassAbi {
 
 private val IrFunction.hasStaticReplacement: Boolean
     get() = origin != IrDeclarationOrigin.FAKE_OVERRIDE &&
-            (this is IrSimpleFunction || this is IrConstructor && returnType.isBoxed && !isPrimary)
+            (this is IrSimpleFunction || this is IrConstructor && constructedClass.isInline && !isPrimary)
 
 private val IrFunction.isAbstract: Boolean
     get() = this is IrSimpleFunction && modality == Modality.ABSTRACT || parent.safeAs<IrClass>()?.isInterface == true
 
 private val IrFunction.hasMethodReplacement: Boolean
-    get() = DFS.ifAny(
-        listOf(this),
-        { current -> (current as? IrSimpleFunction)?.overriddenSymbols?.map { it.owner } ?: listOf() },
-        { current -> current.isBoxed && current.isAbstract }
-    )
+    get() = dispatchReceiverParameter != null && this is IrSimpleFunction && (parent as? IrClass)?.isInline != true
+//    get() = dispatchReceiverParameter != null && DFS.ifAny(
+//        listOf(this),
+//        { current -> (current as? IrSimpleFunction)?.overriddenSymbols?.map { it.owner } ?: listOf() },
+//        { current -> current.isBoxed && current.isAbstract })
 
 private val IrFunction.fullParameterList: List<IrValueParameter>
-    get() = listOfNotNull(dispatchReceiverParameter, extensionReceiverParameter) + valueParameters
+    get() = listOfNotNull(dispatchReceiverParameter) + fullValueParameterList
 
 private val IrFunction.fullValueParameterList: List<IrValueParameter>
     get() = listOfNotNull(extensionReceiverParameter) + valueParameters

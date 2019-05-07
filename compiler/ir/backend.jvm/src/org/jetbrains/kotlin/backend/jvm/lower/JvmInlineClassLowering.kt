@@ -9,8 +9,8 @@ import org.jetbrains.kotlin.backend.common.BackendContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.InlineClassDeclarationLowering
+import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.InlineClassManager
 import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
@@ -21,16 +21,11 @@ val jvmInlineClassPhase = makeIrFilePhase(
 )
 
 class JvmInlineClassLowering(context: BackendContext) : FileLoweringPass {
-    private val declarationLowering = InlineClassDeclarationLowering(context)
+    private val inlineClassManager = InlineClassManager()
+    private val declarationLowering = InlineClassDeclarationLowering(context, inlineClassManager)
 
     override fun lower(irFile: IrFile) {
-        println("Before inline class lowering")
-        println("-------------------------------------------------------------------------------------------------------------------------")
-        println(irFile.dump())
         irFile.transformChildrenVoid(declarationLowering)
         irFile.patchDeclarationParents()
-        println("After inline class lowering")
-        println("-------------------------------------------------------------------------------------------------------------------------")
-        println(irFile.dump())
     }
 }

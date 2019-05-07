@@ -22,7 +22,10 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
-class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappingTransformer(context) {
+class InlineClassDeclarationLowering(
+    context: BackendContext,
+    private val manager: InlineClassManager
+) : ScopedValueMappingTransformer(context) {
     override fun visitClass(declaration: IrClass): IrStatement {
         // Calling super.visitClass would also transform the thisReceiver and
         // type parameters which is not what we want.
@@ -31,7 +34,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
         scoped(declaration.symbol) {
             // The arguments to the primary constructor are in scope in the initializers of IrFields.
             declaration.constructors.singleOrNull { it.isPrimary }?.let { primaryConstructor ->
-                InlineClassAbi.getReplacementFunction(primaryConstructor)?.let { replacement ->
+                manager.getReplacementFunction(primaryConstructor)?.let { replacement ->
                     addMappings(replacement.valueParameterMap)
                 }
             }
@@ -60,7 +63,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
     }
 
     private fun transformFunctionFlat(function: IrFunction): List<IrDeclaration> {
-        val replacement = InlineClassAbi.getReplacementFunction(function)
+        val replacement = manager.getReplacementFunction(function)
         if (replacement == null) {
             if (function is IrConstructor && function.isPrimary && function.constructedClass.isInline)
                 return listOf(function)
@@ -243,7 +246,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
         .apply { buildReplacement(originalFunction, original, replacement) }
 
     override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
-        val replacement = InlineClassAbi.getReplacementFunction(expression.symbol.owner)
+        val replacement = manager.getReplacementFunction(expression.symbol.owner)
             ?: return super.visitFunctionReference(expression)
         val function = replacement.function
 
@@ -259,7 +262,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
 
     override fun visitFunctionAccess(expression: IrFunctionAccessExpression): IrExpression {
         val function = expression.symbol.owner
-        val replacement = InlineClassAbi.getReplacementFunction(function)
+        val replacement = manager.getReplacementFunction(function)
             ?: return super.visitFunctionAccess(expression)
         return buildReplacementCall(function, expression, replacement)
     }
@@ -270,7 +273,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
     override fun visitDelegatingConstructorCall(expression: IrDelegatingConstructorCall): IrExpression {
         val original = expression.symbol.owner
 
-        val replacement = InlineClassAbi.getReplacementFunction(original)
+        val replacement = manager.getReplacementFunction(original)
             ?: return super.visitDelegatingConstructorCall(expression)
 
         return buildReplacementCall(original, expression, replacement)
@@ -278,7 +281,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
 
     override fun visitReturn(expression: IrReturn): IrExpression {
         expression.returnTargetSymbol.owner.safeAs<IrFunction>()?.let { target ->
-            InlineClassAbi.getReplacementFunction(target)?.let {
+            manager.getReplacementFunction(target)?.let {
                 return context.createIrBuilder(it.function.symbol).irReturn(
                     expression.value.transform(this, null)
                 )
@@ -317,14 +320,13 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
     }
 
     override fun visitFunction(declaration: IrFunction): IrStatement {
-        if (InlineClassAbi.getReplacementFunction(declaration) != null)
+        if (manager.getReplacementFunction(declaration) != null)
             error("UNTRANSFORMED FUNCTION ${declaration.dump()}")
         return declaration
     }
 
-    // FIXME: ensure that this is not called in the bodies of original declarations
     private fun remapDeclaration(declaration: IrDeclarationParent) =
-        InlineClassAbi.getReplacementDeclaration(declaration)?.function ?: declaration
+        manager.getReplacementDeclaration(declaration)?.function ?: declaration
 
     private fun buildPrimaryInlineClassConstructor(irClass: IrClass, irConstructor: IrConstructor) {
         irClass.declarations += buildConstructor {
@@ -350,7 +352,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
     }
 
     private fun buildBoxFunction(irClass: IrClass) {
-        val function = InlineClassAbi.getBoxFunction(irClass)
+        val function = manager.getBoxFunction(irClass)
         val builder = context.createIrBuilder(function.symbol)
         val constructor = irClass.constructors.find { it.isPrimary }!!
 
@@ -366,7 +368,7 @@ class InlineClassDeclarationLowering(context: BackendContext) : ScopedValueMappi
     }
 
     private fun buildUnboxFunction(irClass: IrClass) {
-        val function = InlineClassAbi.getUnboxFunction(irClass)
+        val function = manager.getUnboxFunction(irClass)
         val builder = context.createIrBuilder(function.symbol)
         val field = getInlineClassBackingField(irClass)
 
