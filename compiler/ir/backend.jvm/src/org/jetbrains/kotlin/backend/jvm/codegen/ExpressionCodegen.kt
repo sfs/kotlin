@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.backend.jvm.codegen
 
-import com.intellij.codeInspection.bytecodeAnalysis.asm.ASMUtils
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IrIntrinsicMethods
 import org.jetbrains.kotlin.backend.jvm.intrinsics.JavaClassProperty
