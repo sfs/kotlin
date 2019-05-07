@@ -16,13 +16,13 @@
 
 package org.jetbrains.kotlin.backend.jvm.intrinsics
 
+import jdk.internal.org.objectweb.asm.Opcodes
 import org.jetbrains.kotlin.backend.jvm.codegen.*
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.util.render
-import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.Type
 
 object HashCode : IntrinsicMethod() {

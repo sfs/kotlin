@@ -1,6 +1,3 @@
-// IGNORE_BACKEND: JVM_IR
-// On JVM_IR we inline the call of Int.hashCode and so there are only 8 Integer.valueOf calls.
-
 fun returningBoxed() : Int? = 1
 fun acceptingBoxed(x : Int?) : Int ? = x
 
