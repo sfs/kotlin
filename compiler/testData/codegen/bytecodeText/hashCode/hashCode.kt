@@ -1,3 +1,6 @@
+// IGNORE_BACKEND: JVM_IR
+// On JVM_IR we generate the hash code implementation in place.
+
 fun box(): String {
     true.hashCode()
     1.toByte().hashCode()
