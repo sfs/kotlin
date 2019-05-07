@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.types.impl.originalKotlinType
+import org.jetbrains.kotlin.ir.types.isMarkedNullable
 import org.jetbrains.kotlin.ir.util.TypeTranslator
 import org.jetbrains.kotlin.ir.util.coerceToUnitIfNeeded
 import org.jetbrains.kotlin.ir.util.render
@@ -40,10 +41,7 @@ import org.jetbrains.kotlin.psi2ir.generators.GeneratorContext
 import org.jetbrains.kotlin.psi2ir.generators.GeneratorExtensions
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
-import org.jetbrains.kotlin.types.typeUtil.isNullableAny
-import org.jetbrains.kotlin.types.typeUtil.isUnit
-import org.jetbrains.kotlin.types.typeUtil.makeNotNullable
-import org.jetbrains.kotlin.types.typeUtil.makeNullable
+import org.jetbrains.kotlin.types.typeUtil.*
 
 fun insertImplicitCasts(element: IrElement, context: GeneratorContext) {
     element.transformChildren(
@@ -189,7 +187,8 @@ open class InsertImplicitCasts(
         val targetClassDescriptor = typeOperandClassifier.descriptor as? ClassDescriptor
             ?: throw AssertionError("Target type of $operator should be a class: ${render()}")
 
-        argument = argument.cast(samConversion.getFunctionTypeForSAMClass(targetClassDescriptor))
+        val target = samConversion.getFunctionTypeForSAMClass(targetClassDescriptor)
+        argument = argument.cast(if (argument.type.isMarkedNullable()) target.makeNullable() else target.makeNotNullable())
 
         return this
     }
