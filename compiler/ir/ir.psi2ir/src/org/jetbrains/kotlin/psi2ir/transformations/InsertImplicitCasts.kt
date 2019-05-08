@@ -187,8 +187,7 @@ open class InsertImplicitCasts(
         val targetClassDescriptor = typeOperandClassifier.descriptor as? ClassDescriptor
             ?: throw AssertionError("Target type of $operator should be a class: ${render()}")
 
-        val target = samConversion.getFunctionTypeForSAMClass(targetClassDescriptor)
-        argument = argument.cast(if (argument.type.isMarkedNullable()) target.makeNullable() else target.makeNotNullable())
+        argument = argument.cast(samConversion.getFunctionTypeForSAMClass(targetClassDescriptor))
 
         return this
     }
@@ -233,12 +232,8 @@ open class InsertImplicitCasts(
             valueType.isNullabilityFlexible() && valueType.containsNull() && !expectedType.containsNull() ->
                 implicitNonNull(valueType, expectedType)
 
-            KotlinTypeChecker.DEFAULT.isSubtypeOf(valueType, expectedType.makeNullable()) -> {
-                if (valueType.containsNull() && !expectedType.containsNull())
-                    implicitCast(expectedType, IrTypeOperator.IMPLICIT_CAST)
-                else
-                    this
-            }
+            KotlinTypeChecker.DEFAULT.isSubtypeOf(valueType, expectedType.makeNullable()) ->
+                this
 
             KotlinBuiltIns.isInt(valueType) && notNullableExpectedType.isBuiltInIntegerType() ->
                 implicitCast(notNullableExpectedType, IrTypeOperator.IMPLICIT_INTEGER_COERCION)
