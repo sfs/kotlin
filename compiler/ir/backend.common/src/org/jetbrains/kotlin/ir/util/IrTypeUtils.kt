@@ -118,33 +118,3 @@ fun IrType.substitute(substitutionMap: Map<IrTypeParameterSymbol, IrType>): IrTy
         newAnnotations
     )
 }
-
-// There are three kinds of type parameters
-// - Type parameters which are upper bounded by another type parameter, which erase to the
-//   erasure of this upper bound. Kotlin forbids multiple upper bounds in this case.
-// - Type parameters which are upper bounded by a class and several interfaces and/or annotations.
-//   They erase to the class upper bound.
-// - Type parameters which are upper bounded by (several) interfaces and/or annotation.
-//   There is no canonical choice in this case and so these parameters simply erase to the first upper bound.
-//   This behavior is consistent with java.
-val IrType.erasedUpperBound: IrClass
-    get() {
-        val classifier = classifierOrFail
-        return when (classifier) {
-            is IrClassSymbol -> classifier.owner
-            is IrTypeParameterSymbol -> classifier.owner.erasedUpperBound
-            else -> throw IllegalStateException()
-        }
-    }
-
-val IrTypeParameter.erasedUpperBound: IrClass
-    get() {
-        // Check if there is a non-interface/annotation upper bound
-        superTypes
-            .mapNotNull { (it.classifierOrNull as? IrClassSymbol)?.owner }
-            .firstOrNull { !it.isInterface && !it.isAnnotationClass }
-            ?.let { return it }
-
-        // Otherwise we choose either the first IrClass supertype or recurse.
-        return superTypes.first().erasedUpperBound
-    }

@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.backend.common.lower.irNot
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
+import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
@@ -341,12 +342,11 @@ private class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPass
     // TODO: should be a type mapper functionality.
     private fun IrType.eraseTypeParameters() = when (this) {
         is IrErrorType -> this
-        is IrSimpleType -> {
-            val owner = classifier.owner
-            when (owner) {
+        is IrSimpleType ->
+            when (val owner = classifier.owner) {
                 is IrClass -> this
                 is IrTypeParameter -> {
-                    val upperBound = owner.upperBoundClass()
+                    val upperBound = owner.erasedUpperBound
                     IrSimpleTypeImpl(
                         upperBound.symbol,
                         hasQuestionMark,
@@ -356,19 +356,7 @@ private class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPass
                 }
                 else -> error("Unknown IrSimpleType classifier kind: $owner")
             }
-        }
         else -> error("Unknown IrType kind: $this")
-    }
-
-    private fun IrTypeParameter.upperBoundClass(): IrClass {
-        val simpleSuperClassifiers = superTypes.asSequence().filterIsInstance<IrSimpleType>().map { it.classifier }
-        return simpleSuperClassifiers
-                .filterIsInstance<IrClassSymbol>()
-                .let {
-                    it.firstOrNull { !it.owner.isInterface } ?: it.firstOrNull()
-                }?.owner ?:
-            simpleSuperClassifiers.filterIsInstance<IrTypeParameterSymbol>().map { it.owner.upperBoundClass() }.firstOrNull() ?:
-            context.irBuiltIns.anyClass.owner
     }
 
     private fun IrSimpleFunction.findAllReachableDeclarations() =
