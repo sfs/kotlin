@@ -107,20 +107,7 @@ private class JvmInlineClassLowering(context: BackendContext) : FileLoweringPass
         val worker = replacement.function
         scoped(worker.symbol) {
             addMappings(replacement.valueParameterMap)
-
-            // Some functions access this through the class thisReceiver instead of through their
-            // dispatchReceiverParameter. This is a workaround for this case - a similar workaround
-            // exists in ExpressionCodegen.
-            // TODO Figure out if there is a reason for this, or if it is merely a workaround for another bug.
-            val dispatchReceiverParameter = function.dispatchReceiverParameter
-            if (dispatchReceiverParameter != null) {
-                function.parent.safeAs<IrClass>()?.thisReceiver?.let { thisReceiver ->
-                    addMapping(thisReceiver.symbol, replacement.valueParameterMap.getValue(dispatchReceiverParameter.symbol))
-                }
-            }
-            // Lower the initializers
-            for (parameter in worker.valueParameters)
-                parameter.transformChildrenVoid()
+            worker.valueParameters.forEach { it.transformChildrenVoid() }
             worker.body = function.body?.transform(this, null)
         }
 
@@ -157,10 +144,7 @@ private class JvmInlineClassLowering(context: BackendContext) : FileLoweringPass
         // Lower a secondary constructor on a boxed type
         scoped(worker.symbol) {
             addMappings(replacement.valueParameterMap)
-            // Lower the initializers
-            for (parameter in worker.valueParameters)
-                parameter.transformChildrenVoid()
-
+            worker.valueParameters.forEach { it.transformChildrenVoid() }
             worker.body = builder.irBlockBody(worker) {
                 val thisVar = irTemporaryVarDeclaration(
                     worker.returnType, nameHint = "\$this", isMutable = false
@@ -228,13 +212,7 @@ private class JvmInlineClassLowering(context: BackendContext) : FileLoweringPass
         original: IrMemberAccessExpression,
         replacement: IrReplacementFunction
     ) {
-        // Sometimes there are calls which pass type arguments to functions
-        // without type parameters - the parameters in question are then
-        // really parameters of the class...
-        // TODO Fix this in irCall (constructor call to class with type parameters)
-        if (this.typeArgumentsCount == original.typeArgumentsCount)
-            copyTypeArgumentsFrom(original)
-
+        copyTypeArgumentsFrom(original)
         for ((parameter, argument) in typedArgumentList(originalFunction, original)) {
             if (argument == null) continue
             val newParameter = replacement.valueParameterMap[parameter.symbol] ?: continue
