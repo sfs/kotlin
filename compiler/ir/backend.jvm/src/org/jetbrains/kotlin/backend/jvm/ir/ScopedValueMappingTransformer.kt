@@ -5,10 +5,7 @@
 
 package org.jetbrains.kotlin.backend.jvm.ir
 
-import org.jetbrains.kotlin.backend.common.BackendContext
-import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.pop
-import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
 import org.jetbrains.kotlin.ir.declarations.IrValueDeclaration
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrGetValue
@@ -20,20 +17,14 @@ import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.IrVariableSymbol
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 
-open class ScopedValueMappingTransformer(protected val context: BackendContext) : IrElementTransformerVoid() {
+open class ScopedValueMappingTransformer() : IrElementTransformerVoid() {
     protected val valueMap = ScopedValueDeclarationMap()
-    protected var currentBuilder: IrBuilderWithScope? = null
-    protected val builder: IrBuilderWithScope
-        get() = currentBuilder!!
 
     protected inline fun <T> scoped(symbol: IrSymbol, block: () -> T): T {
-        val oldBuilder = currentBuilder
-        currentBuilder = context.createIrBuilder(symbol)
         valueMap.push()
         return try {
             block()
         } finally {
-            currentBuilder = oldBuilder
             valueMap.pop()
         }
     }

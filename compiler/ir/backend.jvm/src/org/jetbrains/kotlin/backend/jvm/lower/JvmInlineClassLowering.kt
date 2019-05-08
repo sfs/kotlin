@@ -34,7 +34,7 @@ val jvmInlineClassPhase = makeIrFilePhase(
     description = "Lower inline classes"
 )
 
-private class JvmInlineClassLowering(context: BackendContext) : FileLoweringPass, ScopedValueMappingTransformer(context) {
+private class JvmInlineClassLowering(private val context: BackendContext) : FileLoweringPass, ScopedValueMappingTransformer() {
     private val manager = InlineClassManager()
 
     override fun lower(irFile: IrFile) {
@@ -117,7 +117,7 @@ private class JvmInlineClassLowering(context: BackendContext) : FileLoweringPass
 
         // Replace the function body with a wrapper
         scoped(function.symbol) {
-            builder.run {
+            context.createIrBuilder(function.symbol).run {
                 val fullParameterList =
                     listOfNotNull(function.dispatchReceiverParameter, function.extensionReceiverParameter) + function.valueParameters
 
@@ -145,7 +145,7 @@ private class JvmInlineClassLowering(context: BackendContext) : FileLoweringPass
         scoped(worker.symbol) {
             addMappings(replacement.valueParameterMap)
             worker.valueParameters.forEach { it.transformChildrenVoid() }
-            worker.body = builder.irBlockBody(worker) {
+            worker.body = context.createIrBuilder(worker.symbol).irBlockBody(worker) {
                 val thisVar = irTemporaryVarDeclaration(
                     worker.returnType, nameHint = "\$this", isMutable = false
                 )
