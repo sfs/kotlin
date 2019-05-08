@@ -395,8 +395,6 @@ class DefaultParameterCleaner constructor(val context: CommonBackendContext) : F
 private fun IrFunction.needsDefaultArgumentsLowering(skipInlineMethods: Boolean, skipExternalMethods: Boolean): Boolean {
     if (isInline && skipInlineMethods) return false
     if (skipExternalMethods && isEffectivelyExternal()) return false
-    // TODO This is correct for the JVM_IR backend, but what about JS_IR and native?
-    if (this is IrConstructor && isPrimary && constructedClass.isInline) return false
     if (valueParameters.any { it.defaultValue != null }) return true
 
     if (this !is IrSimpleFunction) return false
