@@ -5,32 +5,17 @@
 
 package org.jetbrains.kotlin.backend.jvm.lower.inlineclasses
 
-import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
-import org.jetbrains.kotlin.backend.common.descriptors.WrappedValueParameterDescriptor
-import org.jetbrains.kotlin.backend.common.ir.*
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
-import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
-import org.jetbrains.kotlin.ir.declarations.impl.IrValueParameterImpl
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
-import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
-import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
-import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
-import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classOrNull
+import org.jetbrains.kotlin.ir.types.isPrimitiveType
+import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.storage.LockBasedStorageManager
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.security.MessageDigest
 import java.util.*
-
-class IrReplacementFunction(
-    val function: IrFunction,
-    val valueParameterMap: Map<IrValueParameterSymbol, IrValueParameter>
-)
 
 /**
  * Replace inline classes by their underlying types.
@@ -41,9 +26,13 @@ fun IrType.unbox() = InlineClassAbi.unboxType(this) ?: this
  * Check if a function can be replaced.
  */
 val IrFunction.isBoxed: Boolean
-    get() = fullParameterList.any { it.type.erasedUpperBound.isInline } || (this is IrConstructor && constructedClass.isInline)
+    get() = explicitParameters.any { it.type.erasedUpperBound.isInline } || (this is IrConstructor && constructedClass.isInline)
 
 object InlineClassAbi {
+    /**
+     * Unwraps inline class types to their underlying representation.
+     * Returns null if the type cannot be unboxed.
+     */
     internal fun unboxType(type: IrType): IrType? {
         val klass = type.classOrNull?.owner ?: return null
         if (!klass.isInline) return null
@@ -56,217 +45,24 @@ object InlineClassAbi {
         return underlyingType.makeNullable()
     }
 
-    // Get the underlying type of an inline class based on the single argument to its
-    // primary constructor. This is what the current jvm backend does.
-    //
-    // Looking for a backing field does not work for built-in inline classes (UInt, etc.),
-    // which don't contain a field
+    /**
+     * Get the underlying type of an inline class based on the single argument to its
+     * primary constructor. This is what the current jvm backend does.
+     *
+     * Looking for a backing field does not work for built-in inline classes (UInt, etc.),
+     * which don't contain a field
+     */
     fun getUnderlyingType(irClass: IrClass): IrType {
+        require(irClass.isInline)
         val primaryConstructor = irClass.constructors.single { it.isPrimary }
         return primaryConstructor.valueParameters[0].type
     }
-}
-
-class InlineClassManager {
-    private val storageManager = LockBasedStorageManager("inline-class-manager")
 
     /**
-     * Get a replacement for a function or a constructor.
+     * Returns a mangled name for a function taking inline class arguments
+     * to avoid clashes between overloaded methods.
      */
-    val getReplacementFunction: (IrFunction) -> IrReplacementFunction? =
-        storageManager.createMemoizedFunctionWithNullableValues {
-            when {
-                !it.isBoxed || it.isSyntheticInlineClassMember || it.origin == IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA -> null
-                it.hasMethodReplacement -> createMethodReplacement(it)
-                it.hasStaticReplacement -> createStaticReplacement(it)
-                else -> null
-            }
-        }
-
-    /**
-     * Get a replacement for a declaration.
-     */
-    fun getReplacementDeclaration(declaration: IrDeclarationParent) =
-        declaration.safeAs<IrFunction>()?.let { getReplacementFunction(it) }
-
-    /**
-     * Get the box function for an inline class. Concretely, this is a synthetic
-     * static function named "box-impl" which takes an unboxed value and returns
-     * a boxed value.
-     */
-    val getBoxFunction: (IrClass) -> IrSimpleFunction =
-        storageManager.createMemoizedFunction { irClass ->
-            require(irClass.isInline)
-            createBoxFunction(irClass)
-        }
-
-    /**
-     * Get the unbox function for an inline class. Concretely, this is a synthetic
-     * member function named "unbox-impl" which returns an unboxed result.
-     */
-    val getUnboxFunction: (IrClass) -> IrSimpleFunction =
-        storageManager.createMemoizedFunction { irClass ->
-            require(irClass.isInline)
-            createUnboxFunction(irClass)
-        }
-
-
-    private fun createBoxFunction(inlinedClass: IrClass): IrSimpleFunction {
-        val unboxedType = InlineClassAbi.getUnderlyingType(inlinedClass)
-        val boxedType = inlinedClass.defaultType
-
-        val startOffset = inlinedClass.startOffset
-        val endOffset = inlinedClass.endOffset
-
-        val descriptor = WrappedSimpleFunctionDescriptor()
-        val symbol = IrSimpleFunctionSymbolImpl(descriptor)
-        return IrFunctionImpl(
-            startOffset, endOffset, IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER,
-            symbol, Name.identifier("box-impl"), Visibilities.PUBLIC,
-            Modality.FINAL, boxedType, isInline = false, isExternal = false,
-            isTailrec = false, isSuspend = false
-        ).also { function ->
-            function.copyTypeParametersFrom(inlinedClass)
-            function.valueParameters.add(WrappedValueParameterDescriptor().let {
-                IrValueParameterImpl(
-                    startOffset, endOffset,
-                    IrDeclarationOrigin.DEFINED,
-                    IrValueParameterSymbolImpl(it),
-                    Name.identifier("value"),
-                    index = 0,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    type = unboxedType,
-                    isNoinline = false
-                ).apply {
-                    it.bind(this)
-                    parent = function
-                }
-            })
-            descriptor.bind(function)
-            function.parent = inlinedClass
-        }
-    }
-
-    private fun createUnboxFunction(inlinedClass: IrClass): IrSimpleFunction {
-        val unboxedType = InlineClassAbi.getUnderlyingType(inlinedClass)
-        val boxedType = inlinedClass.defaultType
-
-        val startOffset = inlinedClass.startOffset
-        val endOffset = inlinedClass.endOffset
-
-        val descriptor = WrappedSimpleFunctionDescriptor()
-        val symbol = IrSimpleFunctionSymbolImpl(descriptor)
-        return IrFunctionImpl(
-            startOffset, endOffset, IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER,
-            symbol, Name.identifier("unbox-impl"), Visibilities.PUBLIC,
-            Modality.FINAL, unboxedType, isInline = false, isExternal = false,
-            isTailrec = false, isSuspend = false
-        ).also { function ->
-            function.dispatchReceiverParameter =
-                WrappedValueParameterDescriptor().let {
-                    IrValueParameterImpl(
-                        startOffset, endOffset,
-                        IrDeclarationOrigin.DEFINED,
-                        IrValueParameterSymbolImpl(it),
-                        Name.identifier("value"),
-                        index = 0,
-                        varargElementType = null,
-                        isCrossinline = false,
-                        type = boxedType,
-                        isNoinline = false
-                    ).apply {
-                        it.bind(this)
-                        parent = function
-                    }
-                }
-            descriptor.bind(function)
-            function.parent = inlinedClass
-        }
-    }
-
-    private fun createMethodReplacement(function: IrFunction): IrReplacementFunction? {
-        if (function.dispatchReceiverParameter == null || function !is IrSimpleFunction) {
-            throw IllegalStateException("Method override for a static function")
-        }
-
-        val descriptor = WrappedSimpleFunctionDescriptor(
-            function.descriptor.annotations,
-            function.descriptor.source
-        )
-        val symbol = IrSimpleFunctionSymbolImpl(descriptor)
-        val parameterMap = mutableMapOf<IrValueParameterSymbol, IrValueParameter>()
-
-        val replacement = IrFunctionImpl(
-            function.startOffset, function.endOffset, function.origin,
-            symbol, mangledNameFor(function), function.visibility,
-            function.modality, function.returnType, function.isInline, function.isExternal,
-            function.isTailrec, function.isSuspend
-        ).apply {
-            descriptor.bind(this)
-            parent = function.parent
-            copyTypeParametersFrom(function)
-            for ((index, parameter) in function.fullParameterList.withIndex()) {
-                val name = if (parameter == function.extensionReceiverParameter) Name.identifier("\$receiver") else parameter.name
-                val newParameter = parameter.copyTo(this, index = index - 1, name = name)
-                if (parameter == function.dispatchReceiverParameter)
-                    dispatchReceiverParameter = newParameter
-                else
-                    valueParameters.add(newParameter)
-                parameterMap[parameter.symbol] = newParameter
-            }
-
-            function.safeAs<IrSimpleFunction>()?.overriddenSymbols?.forEach { overriddenSymbol ->
-                val replacement = getReplacementFunction(overriddenSymbol.owner)
-                if (replacement != null)
-                    overriddenSymbols.add(replacement.function.symbol as IrSimpleFunctionSymbol)
-            }
-
-            annotations += function.annotations
-            metadata = function.metadata
-        }
-
-        if (replacement.origin == IrDeclarationOrigin.FAKE_OVERRIDE && replacement.overriddenSymbols.isEmpty())
-            return null
-
-        return IrReplacementFunction(replacement, parameterMap)
-    }
-
-    private fun createStaticReplacement(function: IrFunction): IrReplacementFunction? {
-        val descriptor = WrappedSimpleFunctionDescriptor()
-        val symbol = IrSimpleFunctionSymbolImpl(descriptor)
-        val parameterMap = mutableMapOf<IrValueParameterSymbol, IrValueParameter>()
-
-        val replacement = IrFunctionImpl(
-            function.startOffset, function.endOffset, function.origin,
-            symbol, mangledNameFor(function), function.visibility,
-            function.safeAs<IrSimpleFunction>()?.modality ?: Modality.FINAL,
-            function.returnType, function.isInline, function.isExternal,
-            (function is IrSimpleFunction && function.isTailrec),
-            (function is IrSimpleFunction && function.isSuspend)
-        ).apply {
-            descriptor.bind(this)
-            parent = function.parent
-            copyTypeParametersFrom(function)
-            for ((index, parameter) in function.fullParameterList.withIndex()) {
-                val name = when (parameter) {
-                    function.dispatchReceiverParameter -> Name.identifier("\$this")
-                    function.extensionReceiverParameter -> Name.identifier("\$receiver")
-                    else -> parameter.name
-                }
-
-                val newParameter = parameter.copyTo(this, index = index, name = name)
-                valueParameters.add(newParameter)
-                parameterMap[parameter.symbol] = newParameter
-            }
-            if (function !is IrSimpleFunction || function.overriddenSymbols.isEmpty())
-                metadata = function.metadata
-        }
-
-        return IrReplacementFunction(replacement, parameterMap)
-    }
-
-    private fun mangledNameFor(irFunction: IrFunction): Name {
+    fun mangledNameFor(irFunction: IrFunction): Name {
         val base = when {
             irFunction is IrConstructor ->
                 "constructor"
@@ -313,32 +109,22 @@ class InlineClassManager {
     }
 }
 
-private val IrFunction.hasStaticReplacement: Boolean
+internal val IrFunction.hasStaticReplacement: Boolean
     get() = origin != IrDeclarationOrigin.FAKE_OVERRIDE &&
             (this is IrSimpleFunction || this is IrConstructor && constructedClass.isInline && !isPrimary)
 
-private val IrFunction.isAbstract: Boolean
-    get() = this is IrSimpleFunction && modality == Modality.ABSTRACT || parent.safeAs<IrClass>()?.isInterface == true
-
-private val IrFunction.hasMethodReplacement: Boolean
+internal val IrFunction.hasMethodReplacement: Boolean
     get() = dispatchReceiverParameter != null && this is IrSimpleFunction && (parent as? IrClass)?.isInline != true
-//    get() = dispatchReceiverParameter != null && DFS.ifAny(
-//        listOf(this),
-//        { current -> (current as? IrSimpleFunction)?.overriddenSymbols?.map { it.owner } ?: listOf() },
-//        { current -> current.isBoxed && current.isAbstract })
 
-private val IrFunction.fullParameterList: List<IrValueParameter>
-    get() = listOfNotNull(dispatchReceiverParameter) + fullValueParameterList
-
-private val IrFunction.fullValueParameterList: List<IrValueParameter>
+internal val IrFunction.fullValueParameterList: List<IrValueParameter>
     get() = listOfNotNull(extensionReceiverParameter) + valueParameters
 
-private val IrClass.inlineClassFieldName: Name
+internal val IrClass.inlineClassFieldName: Name
     get() = constructors.single { it.isPrimary }.valueParameters.single().name
 
 val IrFunction.isInlineClassFieldGetter: Boolean
     get() = (parent as? IrClass)?.isInline == true && this is IrSimpleFunction &&
             correspondingPropertySymbol?.let { it.owner.getter == this && it.owner.name == parentAsClass.inlineClassFieldName } == true
 
-private val IrFunction.isSyntheticInlineClassMember: Boolean
+internal val IrFunction.isSyntheticInlineClassMember: Boolean
     get() = origin == IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER || isInlineClassFieldGetter

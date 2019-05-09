@@ -43,10 +43,6 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
     }
 
     override fun visitClass(declaration: IrClass): IrStatement {
-        // Calling super.visitClass would also transform the thisReceiver and
-        // type parameters which is not what we want.
-        declaration.parent = remapDeclaration(declaration.parent)
-
         scoped(declaration.symbol) {
             // The arguments to the primary constructor are in scope in the initializers of IrFields.
             declaration.constructors.singleOrNull { it.isPrimary }?.let { primaryConstructor ->
@@ -311,9 +307,6 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
             error("UNTRANSFORMED FUNCTION ${declaration.dump()}")
         return declaration
     }
-
-    private fun remapDeclaration(declaration: IrDeclarationParent) =
-        manager.getReplacementDeclaration(declaration)?.function ?: declaration
 
     private fun buildPrimaryInlineClassConstructor(irClass: IrClass, irConstructor: IrConstructor) {
         irClass.declarations += buildConstructor {
