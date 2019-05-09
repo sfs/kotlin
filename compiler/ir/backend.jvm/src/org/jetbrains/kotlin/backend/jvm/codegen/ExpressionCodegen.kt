@@ -253,7 +253,7 @@ class ExpressionCodegen(
         val function = expression.symbol.owner
         val argument = expression.getValueArgument(0) ?: function.valueParameters[0].defaultValue!!
         val argumentType = function.valueParameters[0].type
-        val value = argument.accept(this, data).coerce(argumentType.asmType, argumentType).materialized
+        val value = argument.accept(this, data).coerce(argumentType).materialized
         value.irType = function.returnType
         return value
     }
@@ -274,7 +274,7 @@ class ExpressionCodegen(
         if (expression.symbol.owner.isInlineClassFieldGetter) {
             val argument = expression.dispatchReceiver!!
             val type = expression.symbol.owner.dispatchReceiverParameter!!.type
-            val value = argument.accept(this, data).coerce(type.asmType, type).materialized
+            val value = argument.accept(this, data).coerce(type).materialized
             value.irType = expression.type
             return value
         }
@@ -301,7 +301,7 @@ class ExpressionCodegen(
 
         if (args.size == 1) {
             // TODO move to the intrinsic
-            expression.getValueArgument(0)!!.accept(this, data).coerce(Type.INT_TYPE, null).materialize()
+            expression.getValueArgument(0)!!.accept(this, data).coerce(Type.INT_TYPE).materialize()
             newArrayInstruction(expression.type)
             return expression.onStack
         }
@@ -311,7 +311,7 @@ class ExpressionCodegen(
 
     private fun generateCall(expression: IrFunctionAccessExpression, superQualifierSymbol: IrClassSymbol?, data: BlockInfo): PromisedValue {
         classCodegen.context.irIntrinsics.getIntrinsic(expression.symbol)
-            ?.invoke(expression, this, data)?.let { return it.coerce(expression.asmType, expression.type) }
+            ?.invoke(expression, this, data)?.let { return it.coerce(expression.type) }
         val isSuperCall = superQualifierSymbol != null
         val callable = resolveToCallable(expression, isSuperCall)
         return generateCall(expression, callable, data, isSuperCall)
@@ -414,9 +414,9 @@ class ExpressionCodegen(
                 voidValue
             expression.type.isUnit() ->
                 // NewInference allows casting `() -> T` to `() -> Unit`. A CHECKCAST here will fail.
-                MaterialValue(this, callable.returnType, null).discard().coerce(expression.asmType, expression.type)
+                MaterialValue(this, callable.returnType, null).discard().coerce(expression.type)
             else ->
-                MaterialValue(this, callable.returnType, returnType).coerce(expression.asmType, expression.type)
+                MaterialValue(this, callable.returnType, returnType).coerce(expression.type)
         }
     }
 
@@ -452,7 +452,7 @@ class ExpressionCodegen(
             assert(expression is IrSetField) { "read of const val ${expression.symbol.owner.name} not inlined by ConstLowering" }
             // This can only be the field's initializer; JVM implementations are required
             // to generate those for ConstantValue-marked fields automatically, so this is redundant.
-            return voidValue.coerce(expression.asmType, expression.type)
+            return voidValue.coerce(expression.type)
         }
 
         val realField = expression.symbol.owner.resolveFakeOverride()!!
@@ -468,15 +468,17 @@ class ExpressionCodegen(
                 isStatic -> mv.putstatic(ownerType, fieldName, fieldType.descriptor)
                 else -> mv.putfield(ownerType, fieldName, fieldType.descriptor)
             }
-            voidValue.coerce(expression.asmType, expression.type)
+            voidValue.coerce(expression.type)
         } else {
             when {
-                isStatic -> mv.getstatic(ownerType, fieldName, fieldType.descriptor)
+                isStatic ->
+                    mv.getstatic(ownerType, fieldName, fieldType.descriptor)
                 expression.symbol.owner.parentAsClass.isInline && irFunction.origin != IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER ->
                     Unit
-                else -> mv.getfield(ownerType, fieldName, fieldType.descriptor)
+                else ->
+                    mv.getfield(ownerType, fieldName, fieldType.descriptor)
             }
-            MaterialValue(this, fieldType, expression.symbol.owner.type).coerce(expression.asmType, expression.type)
+            MaterialValue(this, fieldType, expression.symbol.owner.type).coerce(expression.type)
         }
     }
 
@@ -490,7 +492,7 @@ class ExpressionCodegen(
         val isFieldInitializer = expression.origin == null
         val skip = (inPrimaryConstructor || inClassInit) && isFieldInitializer && expressionValue is IrConst<*> &&
                 isDefaultValueForType(expression.symbol.owner.type.asmType, expressionValue.value)
-        return if (skip) voidValue.coerce(expression.asmType, expression.type) else super.visitSetField(expression, data)
+        return if (skip) voidValue.coerce(expression.type) else super.visitSetField(expression, data)
     }
 
     /**
@@ -519,9 +521,9 @@ class ExpressionCodegen(
     override fun visitSetVariable(expression: IrSetVariable, data: BlockInfo): PromisedValue {
         expression.markLineNumber(startOffset = true)
         expression.value.markLineNumber(startOffset = true)
-        expression.value.accept(this, data).coerce(expression.symbol.owner.asmType, expression.symbol.owner.type).materialize()
+        expression.value.accept(this, data).coerce(expression.symbol.owner.type).materialize()
         mv.store(findLocalIndex(expression.symbol), expression.symbol.owner.asmType)
-        return voidValue.coerce(expression.asmType, expression.type)
+        return voidValue.coerce(expression.type)
     }
 
     override fun <T> visitConst(expression: IrConst<T>, data: BlockInfo): PromisedValue {
@@ -648,12 +650,11 @@ class ExpressionCodegen(
             )
             mv.newarray(typeMapper.boxType(elementIrType))
         } else {
-            val type = typeMapper.mapType(arrayType)
-            mv.newarray(correctElementType(type))
+            mv.newarray(correctElementType(arrayType.asmType))
         }
     }
 
-    // FIXME: code duplication with FinallyBlocksLowering
+    // Copied from FinallyBlocksLowering
     private val IrReturnTarget.returnType: IrType
         get() = when (this) {
             is IrConstructor -> context.irBuiltIns.unitType
@@ -709,7 +710,7 @@ class ExpressionCodegen(
             } else {
                 branch.condition.accept(this, data).coerceToBoolean().jumpIfFalse(elseLabel)
             }
-            val result = branch.result.accept(this, data).coerce(expression.asmType, expression.type).materialized
+            val result = branch.result.accept(this, data).coerce(expression.type).materialized
             if (branch.condition.isTrueConst()) {
                 // The rest of the expression is dead code.
                 mv.mark(endLabel)
@@ -720,7 +721,7 @@ class ExpressionCodegen(
         }
         // Produce the default value for the type. Doesn't really matter right now, as non-exhaustive
         // conditionals cannot be used as expressions.
-        val result = voidValue.coerce(expression.asmType, expression.type).materialized
+        val result = voidValue.coerce(expression.type).materialized
         mv.mark(endLabel)
         return result
     }
@@ -732,11 +733,11 @@ class ExpressionCodegen(
             IrTypeOperator.IMPLICIT_COERCION_TO_UNIT -> {
                 expression.argument.accept(this, data).discard()
                 expression.argument.markEndOfStatementIfNeeded()
-                voidValue.coerce(expression.asmType, null)
+                voidValue.coerce(expression.asmType)
             }
 
             IrTypeOperator.IMPLICIT_CAST, IrTypeOperator.IMPLICIT_INTEGER_COERCION -> {
-                expression.argument.accept(this, data).coerce(expression.asmType, expression.typeOperand)
+                expression.argument.accept(this, data).coerce(expression.type)
             }
 
             IrTypeOperator.CAST, IrTypeOperator.SAFE_CAST -> {
@@ -756,7 +757,7 @@ class ExpressionCodegen(
                         state.languageVersionSettings.isReleaseCoroutines()
                     )
                 }
-                MaterialValue(this, boxedRightType, expression.type).coerce(expression.asmType, expression.type)
+                MaterialValue(this, boxedRightType, expression.type).coerce(expression.type)
             }
 
             IrTypeOperator.INSTANCEOF, IrTypeOperator.NOT_INSTANCEOF -> {
@@ -784,7 +785,7 @@ class ExpressionCodegen(
                     "(Ljava/lang/Object;Ljava/lang/String;)V", false
                 )
                 // Unbox primitives.
-                value.coerce(expression.asmType, expression.typeOperand)
+                value.coerce(expression.type)
             }
 
             else -> throw AssertionError("type operator ${expression.operator} should have been lowered")
@@ -803,10 +804,6 @@ class ExpressionCodegen(
             }
         }
     }
-
-    private fun PromisedValue.boxInlineClasses(irTarget: IrType) =
-        if (irTarget.classOrNull?.owner?.isInline == true)
-            coerceToBoxed(irTarget) else this
 
     override fun visitStringConcatenation(expression: IrStringConcatenation, data: BlockInfo): PromisedValue {
         expression.markLineNumber(startOffset = true)
@@ -1041,7 +1038,7 @@ class ExpressionCodegen(
 
     override fun visitThrow(expression: IrThrow, data: BlockInfo): PromisedValue {
         expression.markLineNumber(startOffset = true)
-        expression.value.accept(this, data).coerce(AsmTypes.JAVA_THROWABLE_TYPE, null).materialize()
+        expression.value.accept(this, data).coerce(AsmTypes.JAVA_THROWABLE_TYPE).materialize()
         mv.athrow()
         return voidValue
     }

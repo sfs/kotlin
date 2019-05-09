@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.InlineClassAbi
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.StackValue
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.types.toKotlinType
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.org.objectweb.asm.Label
@@ -102,7 +103,7 @@ fun PromisedValue.coerceInlineClasses(type: Type, irType: IrType, target: Type, 
 }
 
 // On materialization, cast the value to a different type.
-fun PromisedValue.coerce(target: Type, irTarget: IrType?): PromisedValue {
+fun PromisedValue.coerce(target: Type, irTarget: IrType? = null): PromisedValue {
     val irType = irType
     if (irType != null && irTarget != null)
         coerceInlineClasses(type, irType, target, irTarget)?.let { return it }
@@ -120,8 +121,15 @@ fun PromisedValue.coerce(target: Type, irTarget: IrType?): PromisedValue {
     }
 }
 
+fun PromisedValue.coerce(irTarget: IrType) =
+    coerce(typeMapper.mapType(irTarget), irTarget)
+
 fun PromisedValue.coerceToBoxed(irTarget: IrType) =
     coerce(typeMapper.boxType(irTarget), irTarget)
+
+fun PromisedValue.boxInlineClasses(irTarget: IrType) =
+        if (irTarget.classOrNull?.owner?.isInline == true)
+            coerceToBoxed(irTarget) else this
 
 // Same as above, but with a return type that allows conditional jumping.
 fun PromisedValue.coerceToBoolean() = when (val coerced = coerce(Type.BOOLEAN_TYPE, null)) {
