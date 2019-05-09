@@ -36,9 +36,6 @@ class IrConstImpl<T>(
         visitor.visitConst(this, data)
 
     override fun copy(): IrConst<T> =
-        copy(type)
-
-    fun copy(type: IrType): IrConst<T> =
         IrConstImpl(startOffset, endOffset, type, kind, value)
 
     companion object {
