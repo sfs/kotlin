@@ -128,3 +128,6 @@ val IrFunction.isInlineClassFieldGetter: Boolean
 
 internal val IrFunction.isSyntheticInlineClassMember: Boolean
     get() = origin == IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER || isInlineClassFieldGetter
+
+val IrFunction.isPrimaryInlineClassConstructor: Boolean
+    get() = this is IrConstructor && isPrimary && constructedClass.isInline

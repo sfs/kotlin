@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.backend.jvm.intrinsics.Not
 import org.jetbrains.kotlin.backend.jvm.lower.CrIrType
 import org.jetbrains.kotlin.backend.jvm.lower.constantValue
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.isInlineClassFieldGetter
+import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.isPrimaryInlineClassConstructor
 import org.jetbrains.kotlin.codegen.*
 import org.jetbrains.kotlin.codegen.AsmUtil.*
 import org.jetbrains.kotlin.codegen.inline.*
@@ -248,11 +249,7 @@ class ExpressionCodegen(
         visitStatementContainer(expression, data).coerce(expression.asmType, expression.type)
 
     private val IrFunctionAccessExpression.isErasedNewCall: Boolean
-        get() {
-            val function = symbol.owner
-            return function is IrConstructor && function.isPrimary && function.constructedClass.isInline &&
-                    origin != IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR
-        }
+        get() = symbol.owner.isPrimaryInlineClassConstructor && origin != IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR
 
     private fun generateErasedNewCall(expression: IrFunctionAccessExpression, data: BlockInfo): PromisedValue {
         val function = expression.symbol.owner

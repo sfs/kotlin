@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.backend.jvm.ir.ScopedValueMappingTransformer
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.InlineClassManager
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.IrReplacementFunction
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.isInlineClassFieldGetter
+import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.isPrimaryInlineClassConstructor
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
@@ -77,7 +78,7 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
     private fun transformFunctionFlat(function: IrFunction): List<IrDeclaration> {
         val replacement = manager.getReplacementFunction(function)
         if (replacement == null) {
-            if (function is IrConstructor && function.isPrimary && function.constructedClass.isInline)
+            if (function.isPrimaryInlineClassConstructor)
                 return listOf(function)
 
             scoped(function.symbol) {
@@ -299,12 +300,6 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
         declaration.setter?.let { setter ->
             declaration.setter = transformFunctionFlat(setter)[0] as IrFunction
         }
-        return declaration
-    }
-
-    override fun visitFunction(declaration: IrFunction): IrStatement {
-        if (manager.getReplacementFunction(declaration) != null)
-            error("UNTRANSFORMED FUNCTION ${declaration.dump()}")
         return declaration
     }
 
