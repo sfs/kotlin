@@ -330,7 +330,7 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
 
         function.body = builder.irBlockBody(function) {
             val valueToBox = function.valueParameters[0]
-            +irReturn(irCall(constructor.symbol, IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR).apply {
+            +irReturn(irCall(constructor.symbol).apply {
                 function.typeParameters.forEach { putTypeArgument(it.index, it.defaultType) }
                 putValueArgument(0, irGet(valueToBox))
             })
@@ -346,7 +346,7 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
 
         function.body = builder.irBlockBody {
             val thisVal = irGet(function.dispatchReceiverParameter!!)
-            +irReturn(irGetField(thisVal, field, IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR))
+            +irReturn(irGetField(thisVal, field))
         }
 
         irClass.declarations += function

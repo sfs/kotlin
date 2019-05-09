@@ -23,7 +23,8 @@ import org.jetbrains.kotlin.codegen.pseudoInsns.fixStackAndJump
 import org.jetbrains.kotlin.codegen.signature.BothSignatureWriter
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.isReleaseCoroutines
-import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.descriptors.ClassDescriptor
+import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -32,9 +33,6 @@ import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.util.dump
-import org.jetbrains.kotlin.ir.util.parentAsClass
-import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
@@ -249,7 +247,7 @@ class ExpressionCodegen(
         visitStatementContainer(expression, data).coerce(expression.asmType, expression.type)
 
     private val IrFunctionAccessExpression.isErasedNewCall: Boolean
-        get() = symbol.owner.isPrimaryInlineClassConstructor && origin != IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR
+        get() = symbol.owner.isPrimaryInlineClassConstructor && irFunction.origin != IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER
 
     private fun generateErasedNewCall(expression: IrFunctionAccessExpression, data: BlockInfo): PromisedValue {
         val function = expression.symbol.owner
@@ -474,7 +472,7 @@ class ExpressionCodegen(
         } else {
             when {
                 isStatic -> mv.getstatic(ownerType, fieldName, fieldType.descriptor)
-                expression.symbol.owner.parentAsClass.isInline && expression.origin != IrStatementOrigin.EXPLICIT_INLINE_CLASS_CONSTRUCTOR ->
+                expression.symbol.owner.parentAsClass.isInline && irFunction.origin != IrDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER ->
                     Unit
                 else -> mv.getfield(ownerType, fieldName, fieldType.descriptor)
             }
