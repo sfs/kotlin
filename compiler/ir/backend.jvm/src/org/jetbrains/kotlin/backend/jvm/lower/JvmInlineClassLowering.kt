@@ -40,7 +40,6 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
 
     override fun lower(irFile: IrFile) {
         irFile.transformChildrenVoid()
-        irFile.patchDeclarationParents()
     }
 
     override fun visitClass(declaration: IrClass): IrStatement {
@@ -105,7 +104,7 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
         scoped(worker.symbol) {
             addMappings(replacement.valueParameterMap)
             worker.valueParameters.forEach { it.transformChildrenVoid() }
-            worker.body = function.body?.transform(this, null)
+            worker.body = function.body?.transform(this, null)?.patchDeclarationParents(worker)
         }
 
         // Don't create a wrapper for functions which are only used in an unboxed context
@@ -189,6 +188,7 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
                             }
                         }, null)
                         .transform(this@JvmInlineClassLowering, null)
+                        .patchDeclarationParents(worker)
                 }
 
                 +irReturn(irGet(thisVar))
@@ -256,10 +256,8 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
     // some of these to calls to static functions.
     override fun visitDelegatingConstructorCall(expression: IrDelegatingConstructorCall): IrExpression {
         val original = expression.symbol.owner
-
         val replacement = manager.getReplacementFunction(original)
             ?: return super.visitDelegatingConstructorCall(expression)
-
         return buildReplacementCall(original, expression, replacement)
     }
 
@@ -274,7 +272,6 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
         return super.visitReturn(expression)
     }
 
-    // Recursively transform local declarations
     private fun visitStatementContainer(container: IrStatementContainer) {
         container.statements.transformFlat { statement ->
             if (statement is IrFunction)
