@@ -35,6 +35,14 @@ val jvmInlineClassPhase = makeIrFilePhase(
     description = "Lower inline classes"
 )
 
+/**
+ * Adds new constructors, box, and unbox functions to inline classes as well as replacement
+ * functions and bridges to avoid clashes between overloaded function. Changes calls with
+ * known types to call the replacement functions.
+ *
+ * We do not unfold inline class types here. Instead, the type mapper will lower inline class
+ * types to the types of their underlying field.
+ */
 private class JvmInlineClassLowering(private val context: BackendContext) : FileLoweringPass, ScopedValueMappingTransformer() {
     private val manager = InlineClassManager()
 
@@ -94,11 +102,6 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
         }
     }
 
-    // All functions which mention a lower-able type get a corresponding worker.
-    // Every function whose signature mentions a boxed type gets replaced with a wrapper
-    // calling a static worker taking unboxed arguments and returning unboxed values.
-    // Since the worker is put in the same scope as the wrapper it should have access
-    // to private variables, etc.
     private fun transformSimpleFunctionFlat(function: IrSimpleFunction, replacement: IrReplacementFunction): List<IrDeclaration> {
         val worker = replacement.function
         scoped(worker.symbol) {
@@ -137,7 +140,6 @@ private class JvmInlineClassLowering(private val context: BackendContext) : File
     private fun transformConstructorFlat(constructor: IrConstructor, replacement: IrReplacementFunction): List<IrDeclaration> {
         val worker = replacement.function
 
-        // Lower a secondary constructor on a boxed type
         scoped(worker.symbol) {
             addMappings(replacement.valueParameterMap)
             worker.valueParameters.forEach { it.transformChildrenVoid() }
