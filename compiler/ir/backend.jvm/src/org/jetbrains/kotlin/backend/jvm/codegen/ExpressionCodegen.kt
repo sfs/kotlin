@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.codegen.signature.BothSignatureWriter
 import org.jetbrains.kotlin.config.isReleaseCoroutines
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
@@ -32,6 +33,9 @@ import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
@@ -107,7 +111,11 @@ class ExpressionCodegen(
 
     private val state = classCodegen.state
 
-    private val fileEntry = classCodegen.context.psiSourceManager.getFileEntry(irFunction.fileParent)
+    private val fileEntry = context.psiSourceManager.getFileEntry(irFunction.fileParent)
+
+    private val sourceView by lazy {
+        context.psiSourceManager.getKtFile(irFunction.fileParent)!!.viewProvider.contents
+    }
 
     override val visitor: InstructionAdapter
         get() = mv
@@ -731,7 +739,8 @@ class ExpressionCodegen(
             IrTypeOperator.IMPLICIT_NOTNULL -> {
                 val value = expression.argument.accept(this, data).materialized
                 mv.dup()
-                mv.visitLdcInsn("TODO provide message for IMPLICIT_NOTNULL") /*TODO*/
+                val (startOffset, endOffset) = expression.extents()
+                mv.visitLdcInsn(sourceView.subSequence(startOffset, endOffset).toString())
                 mv.invokestatic(
                     "kotlin/jvm/internal/Intrinsics", "checkExpressionValueIsNotNull",
                     "(Ljava/lang/Object;Ljava/lang/String;)V", false
@@ -742,6 +751,21 @@ class ExpressionCodegen(
 
             else -> throw AssertionError("type operator ${expression.operator} should have been lowered")
         }
+    }
+
+    private fun IrElement.extents(): Pair<Int, Int> {
+        var startOffset = UNDEFINED_OFFSET
+        var endOffset = UNDEFINED_OFFSET
+        acceptVoid(object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+                element.acceptChildrenVoid(this)
+                if (startOffset == UNDEFINED_OFFSET || element.startOffset != UNDEFINED_OFFSET && element.startOffset < startOffset)
+                    startOffset = element.startOffset
+                if (endOffset == UNDEFINED_OFFSET || element.endOffset != UNDEFINED_OFFSET && endOffset < element.endOffset)
+                    endOffset = element.endOffset
+            }
+        })
+        return startOffset to endOffset
     }
 
     private fun IrExpression.markEndOfStatementIfNeeded() {
