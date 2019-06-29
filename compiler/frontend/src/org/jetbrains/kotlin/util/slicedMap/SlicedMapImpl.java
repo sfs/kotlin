@@ -16,25 +16,22 @@
 
 package org.jetbrains.kotlin.util.slicedMap;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
 import com.intellij.openapi.util.Key;
-import com.intellij.util.keyFMap.KeyFMap;
 import kotlin.jvm.functions.Function3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
+import java.util.List;
 
 public class SlicedMapImpl implements MutableSlicedMap {
 
     private final boolean alwaysAllowRewrite;
     @Nullable
-    private Map<Object, KeyFMap> map = null;
-    private Multimap<WritableSlice<?, ?>, Object> collectiveSliceKeys = null;
+    private SlicedMapLog log = null;
+    private SlicedMapTable map = null;
 
     public SlicedMapImpl(boolean alwaysAllowRewrite) {
         this.alwaysAllowRewrite = alwaysAllowRewrite;
@@ -42,24 +39,12 @@ public class SlicedMapImpl implements MutableSlicedMap {
 
     @Override
     public <K, V> void put(WritableSlice<K, V> slice, K key, V value) {
-        if (!slice.check(key, value)) {
+        if (!slice.check(key, value))
             return;
-        }
-
-        if (map == null) {
-            map = new OpenAddressLinearProbingHashTable<>();
-        }
-
-        KeyFMap holder = map.get(key);
-        if (holder == null) {
-            holder = KeyFMap.EMPTY_MAP;
-        }
-
-        Key<V> sliceKey = slice.getKey();
 
         RewritePolicy rewritePolicy = slice.getRewritePolicy();
-        if (!alwaysAllowRewrite && rewritePolicy.rewriteProcessingNeeded(key)) {
-            V oldValue = holder.get(sliceKey);
+        if (!alwaysAllowRewrite && rewritePolicy.rewriteProcessingNeeded(slice.getKey())) {
+            V oldValue = lookup(slice, key);
             if (oldValue != null) {
                 //noinspection unchecked
                 if (!rewritePolicy.processRewrite(slice, key, oldValue, value)) {
@@ -68,30 +53,56 @@ public class SlicedMapImpl implements MutableSlicedMap {
             }
         }
 
-        if (slice.isCollective()) {
-            if (collectiveSliceKeys == null) {
-                collectiveSliceKeys = ArrayListMultimap.create();
+        if (log != null) {
+            if (log.put(slice, key, value)) {
+                slice.afterPut(this, key, value);
+                return;
             }
-
-            collectiveSliceKeys.put(slice, key);
+            map = new SlicedMapTable();
+            log.forEach((index, logKey, logValue) -> {
+                //noinspection unchecked
+                map.put(sliceFor(index), logKey, logValue);
+                return null;
+            });
+            log = null;
         }
 
-        map.put(key, holder.plus(sliceKey, value));
+        if (map != null) {
+            map.put(slice, key, value);
+        } else {
+            log = new SlicedMapLog();
+            log.put(slice, key, value);
+        }
+
+        /*if (map == null)
+            map = new SlicedMapTable();
+        map.put(slice, key, value);*/
+
         slice.afterPut(this, key, value);
+    }
+
+    private <K, V> V lookup(ReadOnlySlice<K, V> slice, K key) {
+        if (log != null) {
+            return log.get(slice, key);
+        } else if (map != null) {
+            return map.get(slice, key);
+        } else {
+            return null;
+        }
     }
 
     @Override
     public void clear() {
-        map = null;
-        collectiveSliceKeys = null;
+        if (log != null) {
+            log.clear();
+        } else {
+            map = null;
+        }
     }
 
     @Override
     public <K, V> V get(ReadOnlySlice<K, V> slice, K key) {
-        KeyFMap holder = map != null ? map.get(key) : null;
-
-        V value = holder == null ? null : holder.get(slice.getKey());
-
+        V value = lookup(slice, key);
         return slice.computeValue(this, key, value, value == null);
     }
 
@@ -99,39 +110,47 @@ public class SlicedMapImpl implements MutableSlicedMap {
     @SuppressWarnings("unchecked")
     public <K, V> Collection<K> getKeys(WritableSlice<K, V> slice) {
         assert slice.isCollective() : "Keys are not collected for slice " + slice;
+        List<K> keys = new ArrayList<K>();
 
-        if (collectiveSliceKeys == null) return Collections.emptyList();
-        return (Collection<K>) collectiveSliceKeys.get(slice);
+        forEach((otherSlice, key, value) -> {
+            if (otherSlice == slice)
+                keys.add((K) key);
+            return null;
+        });
+
+        return keys;
+    }
+
+    private WritableSlice sliceFor(int index) {
+        Key<?> key = Key.getKeyByIndex(index);
+        return ((AbstractWritableSlice) key).getSlice();
     }
 
     @Override
     public void forEach(@NotNull Function3<WritableSlice, Object, Object, Void> f) {
-        if (map == null) return;
-        map.forEach((key, holder) -> {
-            if (holder == null) return;
-
-            for (Key<?> sliceKey : holder.getKeys()) {
-                Object value = holder.get(sliceKey);
-
-                f.invoke(((AbstractWritableSlice) sliceKey).getSlice(), key, value);
-            }
-        });
+        if (log != null) {
+            log.forEach((index, key, value) -> {
+                f.invoke(sliceFor(index), key, value);
+                return null;
+            });
+        } else if (map != null) {
+            map.forEach((index, key, value) -> {
+                f.invoke(sliceFor(index), key, value);
+                return null;
+            });
+        }
     }
 
     @NotNull
     @Override
     @SuppressWarnings("unchecked")
     public <K, V> ImmutableMap<K, V> getSliceContents(@NotNull ReadOnlySlice<K, V> slice) {
-        if (map == null) return ImmutableMap.of();
-
         ImmutableMap.Builder<K, V> builder = ImmutableMap.builder();
 
-        map.forEach((key, holder) -> {
-            V value = holder.get(slice.getKey());
-
-            if (value != null) {
-                builder.put((K) key, value);
-            }
+        forEach((otherSlice, key, value) -> {
+            if (otherSlice == slice)
+                builder.put((K) key, (V) value);
+            return null;
         });
 
         return builder.build();
