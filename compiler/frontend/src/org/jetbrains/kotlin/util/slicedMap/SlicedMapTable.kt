@@ -11,7 +11,7 @@ import kotlin.math.max
 // 64 bits of phi in two's complement
 private const val PHI = -0x1E3779B97F4A7C15L
 private const val BUCKET_SIZE_LOG2 = 2
-private const val MAX_SHIFT = 60
+private const val MAX_SHIFT = 62
 
 /**
  * Hash an object to an index in a table of size 4 * 2^(64 - shift).

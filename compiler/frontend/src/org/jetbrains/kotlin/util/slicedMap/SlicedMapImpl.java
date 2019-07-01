@@ -16,7 +16,9 @@
 
 package org.jetbrains.kotlin.util.slicedMap;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import com.intellij.openapi.util.Key;
 import kotlin.jvm.functions.Function3;
 import org.jetbrains.annotations.NotNull;
@@ -24,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public class SlicedMapImpl implements MutableSlicedMap {
@@ -32,6 +35,8 @@ public class SlicedMapImpl implements MutableSlicedMap {
     @Nullable
     private SlicedMapLog log = null;
     private SlicedMapTable map = null;
+
+    private Multimap<WritableSlice<?, ?>, Object> collectiveSliceKeys = null;
 
     public SlicedMapImpl(boolean alwaysAllowRewrite) {
         this.alwaysAllowRewrite = alwaysAllowRewrite;
@@ -51,6 +56,14 @@ public class SlicedMapImpl implements MutableSlicedMap {
                     return;
                 }
             }
+        }
+
+        if (slice.isCollective()) {
+            if (collectiveSliceKeys == null) {
+                collectiveSliceKeys = ArrayListMultimap.create();
+            }
+
+            collectiveSliceKeys.put(slice, key);
         }
 
         if (log != null) {
@@ -98,6 +111,7 @@ public class SlicedMapImpl implements MutableSlicedMap {
         } else {
             map = null;
         }
+        collectiveSliceKeys = null;
     }
 
     @Override
@@ -110,7 +124,9 @@ public class SlicedMapImpl implements MutableSlicedMap {
     @SuppressWarnings("unchecked")
     public <K, V> Collection<K> getKeys(WritableSlice<K, V> slice) {
         assert slice.isCollective() : "Keys are not collected for slice " + slice;
-        List<K> keys = new ArrayList<K>();
+        if (collectiveSliceKeys == null) return Collections.emptyList();
+        return (Collection<K>) collectiveSliceKeys.get(slice);
+        /*List<K> keys = new ArrayList<K>();
 
         forEach((otherSlice, key, value) -> {
             if (otherSlice == slice)
@@ -118,7 +134,7 @@ public class SlicedMapImpl implements MutableSlicedMap {
             return null;
         });
 
-        return keys;
+        return keys;*/
     }
 
     private WritableSlice sliceFor(int index) {

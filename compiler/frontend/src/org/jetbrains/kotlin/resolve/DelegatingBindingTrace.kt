@@ -37,7 +37,7 @@ open class DelegatingBindingTrace(
     private val map = if (BindingTraceContext.TRACK_REWRITES && !allowSliceRewrite)
         TrackingSlicedMap(BindingTraceContext.TRACK_WITH_STACK_TRACES)
     else
-        SlicedMapImpl(allowSliceRewrite)
+        SlicedMapRH(allowSliceRewrite)
 
     private val mutableDiagnostics: MutableDiagnosticsWithSuppression?
 

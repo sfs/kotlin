@@ -88,7 +88,7 @@ public class BindingTraceContext implements BindingTrace {
 
     public BindingTraceContext(BindingTraceFilter filter, boolean allowSliceRewrite) {
         //noinspection ConstantConditions
-        this(TRACK_REWRITES && !allowSliceRewrite ? new TrackingSlicedMap(TRACK_WITH_STACK_TRACES) : new SlicedMapImpl(allowSliceRewrite), filter);
+        this(TRACK_REWRITES && !allowSliceRewrite ? new TrackingSlicedMap(TRACK_WITH_STACK_TRACES) : new SlicedMapRH(allowSliceRewrite), filter);
     }
 
 

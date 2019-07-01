@@ -24,7 +24,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TrackingSlicedMap extends SlicedMapImpl {
+public class TrackingSlicedMap extends SlicedMapRH {
     private final Map<ReadOnlySlice<?, ?>, SliceWithStackTrace<?, ?>> sliceTranslationMap = new HashMap<>();
     private final boolean trackWithStackTraces;
 

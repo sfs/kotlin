@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.util.slicedMap
 
 import com.intellij.openapi.util.Key
 
-const val LOG_CAPACITY = 32
+const val LOG_CAPACITY = 8
 
 internal class SlicedMapLog {
     private val indices = IntArray(LOG_CAPACITY)
