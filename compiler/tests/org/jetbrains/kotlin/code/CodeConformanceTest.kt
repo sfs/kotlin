@@ -81,7 +81,7 @@ class CodeConformanceTest : TestCase() {
             "libraries/tools/kotlin-gradle-plugin-integration-tests/build",
             "libraries/tools/kotlin-test-nodejs-runner/node_modules",
             "libraries/tools/kotlin-test-nodejs-runner/.gradle",
-            "buildSrc/prepare-deps/build",
+            "buildSrc/prepare-deps",
             "compiler/ir/serialization.js/build"
         )
     }
