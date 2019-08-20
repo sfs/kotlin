@@ -10,19 +10,25 @@ import org.jetbrains.kotlin.backend.common.ir.copyTypeParameters
 import org.jetbrains.kotlin.backend.common.ir.copyTypeParametersFrom
 import org.jetbrains.kotlin.backend.common.ir.createDispatchReceiverParameter
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
+import org.jetbrains.kotlin.backend.jvm.ir.eraseTypeParameters
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.InlineClassAbi.mangledNameFor
+import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildFunWithDescriptorForInlining
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
+import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
+import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.getClass
+import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.constructedClass
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.explicitParameters
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.InlineClassDescriptorResolver
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 
 class IrReplacementFunction(
@@ -73,14 +79,14 @@ class MemoizedInlineClassReplacements {
         storageManager.createMemoizedFunction { irClass ->
             require(irClass.isInline)
             buildFun {
-                name = Name.identifier("box-impl")
+                name = Name.identifier(KotlinTypeMapper.BOX_JVM_METHOD_NAME)
                 origin = JvmLoweredDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER
                 returnType = irClass.defaultType
             }.apply {
                 parent = irClass
                 copyTypeParametersFrom(irClass)
                 addValueParameter {
-                    name = Name.identifier("v")
+                    name = InlineClassDescriptorResolver.BOXING_VALUE_PARAMETER_NAME
                     type = InlineClassAbi.getUnderlyingType(irClass)
                 }
             }
@@ -94,7 +100,7 @@ class MemoizedInlineClassReplacements {
         storageManager.createMemoizedFunction { irClass ->
             require(irClass.isInline)
             buildFun {
-                name = Name.identifier("unbox-impl")
+                name = Name.identifier(KotlinTypeMapper.UNBOX_JVM_METHOD_NAME)
                 origin = JvmLoweredDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER
                 returnType = InlineClassAbi.getUnderlyingType(irClass)
             }.apply {
@@ -102,6 +108,31 @@ class MemoizedInlineClassReplacements {
                 createDispatchReceiverParameter()
             }
         }
+
+    private val specializedEqualsCache = storageManager.createCacheWithNotNullValues<IrClass, IrSimpleFunction>()
+    fun getSpecializedEqualsMethod(irClass: IrClass, irBuiltIns: IrBuiltIns): IrSimpleFunction {
+        require(irClass.isInline)
+        return specializedEqualsCache.computeIfAbsent(irClass) {
+            buildFun {
+                name = InlineClassDescriptorResolver.SPECIALIZED_EQUALS_NAME
+                // TODO: Revisit this once we allow user defined equals methods in inline classes.
+                origin = IrDeclarationOrigin.GENERATED_INLINE_CLASS_MEMBER
+                returnType = irBuiltIns.booleanType
+            }.apply {
+                parent = irClass
+                // We use erased types here, since there is no good way to go from type arguments to types in the IR anyway.
+                val typeArgument = irClass.defaultType.eraseTypeParameters()
+                addValueParameter {
+                    name = InlineClassDescriptorResolver.SPECIALIZED_EQUALS_FIRST_PARAMETER_NAME
+                    type = typeArgument
+                }
+                addValueParameter {
+                    name = InlineClassDescriptorResolver.SPECIALIZED_EQUALS_SECOND_PARAMETER_NAME
+                    type = typeArgument
+                }
+            }
+        }
+    }
 
     private fun createMethodReplacement(function: IrFunction): IrReplacementFunction? {
         require(function.dispatchReceiverParameter != null && function is IrSimpleFunction)

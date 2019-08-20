@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.TypeUtils
+import org.jetbrains.kotlin.types.typeUtil.isPrimitiveNumberOrNullableType
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 fun ClassDescriptor.underlyingRepresentation(): ValueParameterDescriptor? {
@@ -30,6 +31,14 @@ fun KotlinType.substitutedUnderlyingType(): KotlinType? {
     val parameter = unsubstitutedUnderlyingParameter() ?: return null
     return memberScope.getContributedVariables(parameter.name, NoLookupLocation.FOR_ALREADY_TRACKED).singleOrNull()?.type
 }
+
+private tailrec fun KotlinType.unboxedUnderlyingType(): KotlinType {
+    val underlying = substitutedUnderlyingType() ?: return this
+    return underlying.unboxedUnderlyingType()
+}
+
+fun KotlinType.isInlineClassWrapperWithNull() =
+    !unboxedUnderlyingType().isPrimitiveNumberOrNullableType()
 
 fun KotlinType.isRecursiveInlineClassType() =
     isRecursiveInlineClassTypeInner(hashSetOf())

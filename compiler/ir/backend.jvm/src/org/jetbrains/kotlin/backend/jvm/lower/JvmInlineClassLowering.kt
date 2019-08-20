@@ -28,8 +28,12 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrSetVariableImpl
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.IrVariableSymbol
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classOrNull
+import org.jetbrains.kotlin.ir.types.classifierOrFail
+import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
+import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 val jvmInlineClassPhase = makeIrFilePhase(
@@ -79,6 +83,7 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
             buildPrimaryInlineClassConstructor(declaration, irConstructor)
             buildBoxFunction(declaration)
             buildUnboxFunction(declaration)
+            buildSpecializedEqualsMethod(declaration)
         }
 
         return declaration
@@ -246,6 +251,23 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
 
     override fun visitCall(expression: IrCall): IrExpression {
         val function = expression.symbol.owner
+
+        // Specialize calls to equals on inline classes to equals-impl0
+        if (function.symbol == context.irBuiltIns.eqeqSymbol) {
+            val left = expression.getValueArgument(0)
+            val right = expression.getValueArgument(1)
+            if (left?.type?.isBoxedInlineClassType == true &&
+                right?.type?.isBoxedInlineClassType == true &&
+                left.type.classifierOrNull == right.type.classifierOrNull
+            ) {
+                val specializedEquals = manager.getSpecializedEqualsMethod(left.type.classOrNull!!.owner, context.irBuiltIns)
+                return IrCallImpl(expression.startOffset, expression.endOffset, expression.type, specializedEquals.symbol).apply {
+                    putValueArgument(0, left.transform(this@JvmInlineClassLowering, null))
+                    putValueArgument(1, right.transform(this@JvmInlineClassLowering, null))
+                }
+            }
+        }
+
         if (!function.isInlineClassFieldGetter)
             return super.visitCall(expression)
         val arg = expression.dispatchReceiver!!.transform(this, null)
@@ -366,6 +388,24 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
         function.body = builder.irBlockBody {
             val thisVal = irGet(function.dispatchReceiverParameter!!)
             +irReturn(irGetField(thisVal, field))
+        }
+
+        irClass.declarations += function
+    }
+
+    private fun buildSpecializedEqualsMethod(irClass: IrClass) {
+        val function = manager.getSpecializedEqualsMethod(irClass, context.irBuiltIns)
+        val left = function.valueParameters[0]
+        val right = function.valueParameters[1]
+        val type = left.type.unboxInlineClass()
+
+        function.body = context.createIrBuilder(irClass.symbol).run {
+            irExprBody(
+                irEquals(
+                    coerceInlineClasses(irGet(left), left.type, type),
+                    coerceInlineClasses(irGet(right), right.type, type)
+                )
+            )
         }
 
         irClass.declarations += function
