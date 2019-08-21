@@ -116,7 +116,7 @@ class MemoizedInlineClassReplacements {
             buildFun {
                 name = InlineClassDescriptorResolver.SPECIALIZED_EQUALS_NAME
                 // TODO: Revisit this once we allow user defined equals methods in inline classes.
-                origin = IrDeclarationOrigin.GENERATED_INLINE_CLASS_MEMBER
+                origin = JvmLoweredDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER
                 returnType = irBuiltIns.booleanType
             }.apply {
                 parent = irClass
@@ -188,6 +188,10 @@ class MemoizedInlineClassReplacements {
     private fun buildReplacement(function: IrFunction, body: IrFunctionImpl.() -> Unit) =
         buildFunWithDescriptorForInlining(function.descriptor) {
             updateFrom(function)
+            if (function.origin == IrDeclarationOrigin.GENERATED_INLINE_CLASS_MEMBER)
+                origin = JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD
+            else if (function.origin != IrDeclarationOrigin.FAKE_OVERRIDE)
+                origin = JvmLoweredDeclarationOrigin.INLINE_CLASS_IMPL_METHOD
             name = mangledNameFor(function)
             returnType = function.returnType
         }.apply {

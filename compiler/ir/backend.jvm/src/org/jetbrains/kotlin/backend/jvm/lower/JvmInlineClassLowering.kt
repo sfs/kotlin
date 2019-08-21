@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ir.copyParameterDeclarationsFrom
 import org.jetbrains.kotlin.backend.common.ir.passTypeArgumentsFrom
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
@@ -29,11 +30,8 @@ import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.IrVariableSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrNull
-import org.jetbrains.kotlin.ir.types.classifierOrFail
-import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 val jvmInlineClassPhase = makeIrFilePhase(
@@ -50,7 +48,7 @@ val jvmInlineClassPhase = makeIrFilePhase(
  * We do not unfold inline class types here. Instead, the type mapper will lower inline class
  * types to the types of their underlying field.
  */
-private class JvmInlineClassLowering(private val context: JvmBackendContext) : FileLoweringPass, IrElementTransformerVoid() {
+private class JvmInlineClassLowering(private val context: JvmBackendContext) : FileLoweringPass, IrElementTransformerVoidWithContext() {
     private val manager = MemoizedInlineClassReplacements()
     private val valueMap = mutableMapOf<IrValueSymbol, IrValueDeclaration>()
 
@@ -58,7 +56,7 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
         irFile.transformChildrenVoid()
     }
 
-    override fun visitClass(declaration: IrClass): IrStatement {
+    override fun visitClassNew(declaration: IrClass): IrStatement {
         // The arguments to the primary constructor are in scope in the initializers of IrFields.
         declaration.primaryConstructor?.let {
             manager.getReplacementFunction(it)?.let { replacement ->
@@ -237,9 +235,10 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
         val function = expression.symbol.owner
         val replacement = manager.getReplacementFunction(function)
             ?: return super.visitFunctionAccess(expression)
-        return context.createIrBuilder(expression.symbol).irCall(replacement.function).apply {
-            buildReplacement(function, expression, replacement)
-        }
+        return context.createIrBuilder(currentScope!!.scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset)
+            .irCall(replacement.function).apply {
+                buildReplacement(function, expression, replacement)
+            }
     }
 
     private fun coerceInlineClasses(argument: IrExpression, from: IrType, to: IrType) =
@@ -249,30 +248,70 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
             putValueArgument(0, argument)
         }
 
-    override fun visitCall(expression: IrCall): IrExpression {
-        val function = expression.symbol.owner
+    private fun IrExpression.coerceToUnboxed() =
+        coerceInlineClasses(this, this.type, this.type.unboxInlineClass())
 
-        // Specialize calls to equals on inline classes to equals-impl0
-        if (function.symbol == context.irBuiltIns.eqeqSymbol) {
-            val left = expression.getValueArgument(0)
-            val right = expression.getValueArgument(1)
-            if (left?.type?.isBoxedInlineClassType == true &&
-                right?.type?.isBoxedInlineClassType == true &&
-                left.type.classifierOrNull == right.type.classifierOrNull
-            ) {
-                val specializedEquals = manager.getSpecializedEqualsMethod(left.type.classOrNull!!.owner, context.irBuiltIns)
-                return IrCallImpl(expression.startOffset, expression.endOffset, expression.type, specializedEquals.symbol).apply {
-                    putValueArgument(0, left.transform(this@JvmInlineClassLowering, null))
-                    putValueArgument(1, right.transform(this@JvmInlineClassLowering, null))
+    private fun IrClass.getEqualsImpl(): IrFunction {
+        val equals = functions.single { it.name.asString() == "equals" && it.overriddenSymbols.isNotEmpty() }
+        return manager.getReplacementFunction(equals)!!.function
+    }
+
+    private fun IrBuilderWithScope.specializeEqualsCall(left: IrExpression, right: IrExpression): IrExpression? {
+        // There's already special handling for null-comparisons in Equals.kt
+        if (left.isNullConst() || right.isNullConst())
+            return null
+
+        val leftIsUnboxed = left.type.unboxInlineClass() !== left.type
+        val rightIsUnboxed = right.type.unboxInlineClass() !== right.type
+
+        return when {
+            left.type.isUnsigned() && right.type.isUnsigned() && leftIsUnboxed && rightIsUnboxed ->
+                irEquals(left.coerceToUnboxed(), right.coerceToUnboxed())
+            leftIsUnboxed && rightIsUnboxed ->
+                // The frontend ensures that the types are the same.
+                irCall(manager.getSpecializedEqualsMethod(left.type.classOrNull!!.owner, context.irBuiltIns)).apply {
+                    putValueArgument(0, left)
+                    putValueArgument(1, right)
                 }
+            leftIsUnboxed ->
+                irCall(left.type.classOrNull!!.owner.getEqualsImpl()).apply {
+                    putValueArgument(0, left)
+                    putValueArgument(1, right)
+                }
+            rightIsUnboxed ->
+                irLetS(left) {
+                    irCall(right.type.classOrNull!!.owner.getEqualsImpl()).apply {
+                        putValueArgument(0, right)
+                        putValueArgument(1, irGet(it.owner))
+                    }
+                }
+            else -> null
+        }
+    }
+
+    override fun visitCall(expression: IrCall): IrExpression =
+        when {
+            // Getting the underlying field of an inline class merely changes the IR type,
+            // since the underlying representations are the same.
+            expression.symbol.owner.isInlineClassFieldGetter -> {
+                val arg = expression.dispatchReceiver!!.transform(this, null)
+                coerceInlineClasses(arg, expression.symbol.owner.dispatchReceiverParameter!!.type, expression.type)
             }
+            // Specialize calls to equals with at least one inline class argument to avoid boxing.
+            expression.isInlineClassEqEq -> {
+                expression.transformChildrenVoid()
+                context.createIrBuilder(currentScope!!.scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset)
+                    .specializeEqualsCall(expression.getValueArgument(0)!!, expression.getValueArgument(1)!!)
+                    ?: expression
+            }
+            else ->
+                super.visitCall(expression)
         }
 
-        if (!function.isInlineClassFieldGetter)
-            return super.visitCall(expression)
-        val arg = expression.dispatchReceiver!!.transform(this, null)
-        return coerceInlineClasses(arg, function.dispatchReceiverParameter!!.type, expression.type)
-    }
+    private val IrCall.isInlineClassEqEq: Boolean
+        get() = symbol == context.irBuiltIns.eqeqSymbol &&
+                (getValueArgument(0)?.type?.classOrNull?.owner?.isInline == true ||
+                        getValueArgument(1)?.type?.classOrNull?.owner?.isInline == true)
 
     override fun visitGetField(expression: IrGetField): IrExpression {
         val field = expression.symbol.owner
@@ -287,7 +326,7 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
     override fun visitReturn(expression: IrReturn): IrExpression {
         expression.returnTargetSymbol.owner.safeAs<IrFunction>()?.let { target ->
             manager.getReplacementFunction(target)?.let {
-                return context.createIrBuilder(it.function.symbol).irReturn(
+                return context.createIrBuilder(it.function.symbol, expression.startOffset, expression.endOffset).irReturn(
                     expression.value.transform(this, null)
                 )
             }

@@ -19,9 +19,6 @@ import org.jetbrains.kotlin.resolve.DescriptorUtils
  */
 fun IrType.unboxInlineClass() = InlineClassAbi.unboxType(this) ?: this
 
-val IrType.isBoxedInlineClassType: Boolean
-    get() = InlineClassAbi.unboxType(this) != null
-
 object InlineClassAbi {
     /**
      * Unwraps inline class types to their underlying representation.
@@ -31,6 +28,7 @@ object InlineClassAbi {
         val klass = type.classOrNull?.owner ?: return null
         if (!klass.isInline) return null
 
+        // TODO: Apply type substitution.
         val underlyingType = getUnderlyingType(klass).unboxInlineClass()
         if (!type.isNullable())
             return underlyingType

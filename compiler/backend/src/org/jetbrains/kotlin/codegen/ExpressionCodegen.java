@@ -3378,29 +3378,28 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         Type leftType = pregeneratedSubject != null ? pregeneratedSubject.type : expressionType(left);
         Type rightType = expressionType(right);
 
-        boolean leftIsInlineClassWithPrimitiveEquality = leftIsInlineClass && isInlineClassTypeWithPrimitiveEquality(leftKotlinType);
-        boolean rightIsInlineClassWithPrimitiveEquality = rightIsInlineClass && isInlineClassTypeWithPrimitiveEquality(rightKotlinType);
+        boolean leftHasPrimitiveEquality =
+                isPrimitive(leftType) && (!leftIsInlineClass || isInlineClassTypeWithPrimitiveEquality(leftKotlinType));
+        boolean rightHasPrimitiveEquality =
+                isPrimitive(rightType) && (!rightIsInlineClass || isInlineClassTypeWithPrimitiveEquality(rightKotlinType));
 
-        boolean leftHasPrimitiveEquality = isPrimitive(leftType) && (!leftIsInlineClass || leftIsInlineClassWithPrimitiveEquality);
-        boolean rightHasPrimitiveEquality = isPrimitive(rightType) && (!rightIsInlineClass || rightIsInlineClassWithPrimitiveEquality);
-
-        if (KtPsiUtil.isNullConstant(left) && (!rightIsInlineClass || InlineClassesUtilsKt.isInlineClassWrapperWithNull(rightKotlinType))) {
+        if (KtPsiUtil.isNullConstant(left)) {
             return genCmpWithNull(right, opToken, null);
         }
 
-        if (KtPsiUtil.isNullConstant(right) && (!leftIsInlineClass || InlineClassesUtilsKt.isInlineClassWrapperWithNull(leftKotlinType))) {
+        if (KtPsiUtil.isNullConstant(right)) {
             return genCmpWithNull(left, opToken, pregeneratedSubject);
         }
 
-        // If both sides are instances of the same inline class and both are unboxed, use the specialized
-        // equals-impl0 method to compare the underlying representations.
-        if (leftIsInlineClass && rightIsInlineClass && leftKotlinType.getConstructor().equals(rightKotlinType.getConstructor()) &&
-            StackValue.isUnboxedInlineClass(leftKotlinType, leftType) && StackValue.isUnboxedInlineClass(rightKotlinType, rightType)) {
-            return generateEqualityWithInlineClassesUnboxed(left, right, rightType, opToken, pregeneratedSubject);
-        }
-
-        if (leftIsInlineClass && !leftIsInlineClassWithPrimitiveEquality || rightIsInlineClass && !rightIsInlineClassWithPrimitiveEquality) {
-            return generateEqualityWithInlineClassesBoxing(left, leftType, right, rightType, opToken, pregeneratedSubject);
+        if (leftIsInlineClass || rightIsInlineClass) {
+            boolean leftIsUnboxed = leftIsInlineClass && StackValue.isUnboxedInlineClass(leftKotlinType, leftType);
+            boolean rightIsUnboxed = rightIsInlineClass && StackValue.isUnboxedInlineClass(rightKotlinType, rightType);
+            if (!leftIsUnboxed || !rightIsUnboxed || !leftHasPrimitiveEquality || !rightHasPrimitiveEquality) {
+                return genEqualsForInlineClasses(
+                        left, right, opToken, pregeneratedSubject, leftKotlinType, rightKotlinType,
+                        leftType, rightType, leftIsUnboxed, rightIsUnboxed
+                );
+            }
         }
 
         if (isIntZero(left, leftType) && rightHasPrimitiveEquality && isIntPrimitive(rightType)) {
@@ -3423,35 +3422,33 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             return genCmpPrimitiveToSafeCall(left, leftType, (KtSafeQualifiedExpression) right, opToken, pregeneratedSubject);
         }
 
-        if (!leftIsInlineClass && !rightIsInlineClass) {
-            if (BoxedToPrimitiveEquality.isApplicable(opToken, leftType, rightType)) {
-                return BoxedToPrimitiveEquality.create(
-                        opToken,
-                        genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
-                        genLazy(right, rightType), rightType,
-                        myFrameMap
-                );
-            }
+        if (BoxedToPrimitiveEquality.isApplicable(opToken, leftType, rightType)) {
+            return BoxedToPrimitiveEquality.create(
+                    opToken,
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
+                    genLazy(right, rightType), rightType,
+                    myFrameMap
+            );
+        }
 
-            if (PrimitiveToBoxedEquality.isApplicable(opToken, leftType, rightType)) {
-                return PrimitiveToBoxedEquality.create(
-                        opToken,
-                        genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
-                        genLazy(right, rightType), rightType
-                );
-            }
+        if (PrimitiveToBoxedEquality.isApplicable(opToken, leftType, rightType)) {
+            return PrimitiveToBoxedEquality.create(
+                    opToken,
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
+                    genLazy(right, rightType), rightType
+            );
+        }
 
-            if (PrimitiveToObjectEquality.isApplicable(opToken, leftType, rightType)) {
-                return PrimitiveToObjectEquality.create(
-                        opToken,
-                        genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
-                        genLazy(right, rightType), rightType
-                );
-            }
+        if (PrimitiveToObjectEquality.isApplicable(opToken, leftType, rightType)) {
+            return PrimitiveToObjectEquality.create(
+                    opToken,
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
+                    genLazy(right, rightType), rightType
+            );
         }
 
 
-        if (!leftIsInlineClass && !rightIsInlineClass && isPrimitive(leftType) != isPrimitive(rightType)) {
+        if (isPrimitive(leftType) != isPrimitive(rightType)) {
             leftType = boxType(leftType);
             rightType = boxType(rightType);
         }
@@ -3483,73 +3480,62 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         );
     }
 
-    private StackValue generateEqualityWithInlineClassesUnboxed(
+    @NotNull
+    private StackValue genEqualsForInlineClasses(
             @NotNull KtExpression left,
             @NotNull KtExpression right,
-            @NotNull Type type,
             @NotNull IElementType opToken,
-            @Nullable StackValue pregeneratedSubject
+            @Nullable StackValue pregeneratedSubject,
+            KotlinType leftKotlinType,
+            KotlinType rightKotlinType,
+            Type leftType,
+            Type rightType,
+            boolean leftIsUnboxed,
+            boolean rightIsUnboxed
     ) {
-        KotlinType leftKotlinType = kotlinType(left);
-        KotlinType rightKotlinType = kotlinType(right);
-
-        StackValue leftValue = genLazyUnlessProvided(pregeneratedSubject, left, type, leftKotlinType);
-        StackValue rightValue = genLazy(right, type, rightKotlinType);
-
-        return StackValue.operation(Type.BOOLEAN_TYPE, v -> {
-            leftValue.put(type, leftKotlinType, v);
-            rightValue.put(type, rightKotlinType, v);
-
-            String className = typeMapper.mapTypeAsDeclaration(leftKotlinType).getInternalName();
-            String descriptor = Type.getMethodType(Type.BOOLEAN_TYPE, type, type).toString();
-            v.invokestatic(className, InlineClassDescriptorResolver.SPECIALIZED_EQUALS_NAME.asString(), descriptor, false);
-
-            if (opToken == KtTokens.EXCLEQ || opToken == KtTokens.EXCLEQEQEQ) {
-                genInvertBoolean(v);
-            }
-            return Unit.INSTANCE;
-        });
-    }
-
-    private StackValue generateEqualityWithInlineClassesBoxing(
-            @NotNull KtExpression left,
-            @NotNull Type leftType,
-            @NotNull KtExpression right,
-            @NotNull Type rightType,
-            @NotNull IElementType opToken,
-            @Nullable StackValue pregeneratedSubject
-    ) {
-        KotlinType leftKotlinType = kotlinType(left);
-        KotlinType rightKotlinType = kotlinType(right);
-
         StackValue leftValue = genLazyUnlessProvided(pregeneratedSubject, left, leftType, leftKotlinType);
         StackValue rightValue = genLazy(right, rightType, rightKotlinType);
 
         return StackValue.operation(Type.BOOLEAN_TYPE, v -> {
-            // Comparing an unboxed inline class value against null is vacuously false.
-            if (KtPsiUtil.isNullConstant(left) && StackValue.isUnboxedInlineClass(rightKotlinType, rightType) ||
-                KtPsiUtil.isNullConstant(right) && StackValue.isUnboxedInlineClass(leftKotlinType, leftType)) {
-                if (!KtPsiUtil.isNullConstant(left)) {
-                    leftValue.put(leftType, leftKotlinType, v);
-                    AsmUtil.pop(v, leftType);
-                }
-                if (!KtPsiUtil.isNullConstant(right)) {
-                    rightValue.put(rightType, rightKotlinType, v);
-                    AsmUtil.pop(v, rightType);
-                }
-                v.iconst((opToken == KtTokens.EXCLEQ || opToken == KtTokens.EXCLEQEQEQ) ? 1 : 0);
-                return Unit.INSTANCE;
-            }
-
             KotlinType nullableAnyType = state.getModule().getBuiltIns().getNullableAnyType();
 
             leftValue.put(leftType, leftKotlinType, v);
-            StackValue.coerce(leftType, leftKotlinType, AsmTypes.OBJECT_TYPE, nullableAnyType, v);
+            if (!leftIsUnboxed) {
+                StackValue.coerce(leftType, leftKotlinType, OBJECT_TYPE, nullableAnyType, v);
+            }
 
             rightValue.put(rightType, rightKotlinType, v);
-            StackValue.coerce(rightType, rightKotlinType, AsmTypes.OBJECT_TYPE, nullableAnyType, v);
+            if (!rightIsUnboxed) {
+                StackValue.coerce(rightType, rightKotlinType, OBJECT_TYPE, nullableAnyType, v);
+            }
 
-            return genAreEqualCall(v, opToken);
+            if (leftIsUnboxed || rightIsUnboxed) {
+                KotlinType inlineClassKotlinType = leftIsUnboxed ? leftKotlinType : rightKotlinType;
+                Type inlineClassType = leftIsUnboxed ? leftType : rightType;
+                String className = typeMapper.mapTypeAsDeclaration(inlineClassKotlinType).getInternalName();
+                if (leftIsUnboxed && rightIsUnboxed) {
+                    // Call equals-impl0 if both arguments are unboxed
+                    String descriptor = Type.getMethodType(Type.BOOLEAN_TYPE, inlineClassType, inlineClassType).toString();
+                    v.invokestatic(className, InlineClassDescriptorResolver.SPECIALIZED_EQUALS_NAME.asString(), descriptor, false);
+                } else {
+                    // Call equals-impl(unboxed, boxed) if only one argument is unboxed
+                    if (rightIsUnboxed) {
+                        //noinspection SuspiciousNameCombination
+                        AsmUtil.swap(v, rightType, leftType);
+                    }
+                    String descriptor = Type.getMethodType(Type.BOOLEAN_TYPE, inlineClassType, OBJECT_TYPE).toString();
+                    v.invokestatic(className, "equals-impl", descriptor, false);
+                }
+            } else {
+                // Call Intrinsics.areEqual when both arguments are boxed
+                genAreEqualCall(v);
+            }
+
+            if (opToken == KtTokens.EXCLEQ || opToken == KtTokens.EXCLEQEQEQ) {
+                genInvertBoolean(v);
+            }
+
+            return Unit.INSTANCE;
         });
     }
 
@@ -3818,10 +3804,23 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
     }
 
     private StackValue genCmpWithNull(KtExpression exp, IElementType opToken, @Nullable StackValue pregeneratedExpr) {
-        return StackValue.compareWithNull(
-                pregeneratedExpr != null ? pregeneratedExpr : gen(exp),
-                (KtTokens.EQEQ == opToken || KtTokens.EQEQEQ == opToken) ? IFNONNULL : IFNULL
-        );
+        KotlinType kotlinType = kotlinType(exp);
+        Type type = expressionType(exp);
+        StackValue argument = genLazyUnlessProvided(pregeneratedExpr, exp, type, kotlinType);
+
+        if (kotlinType == null || TypeUtils.isNullableType(kotlinType)) {
+            return StackValue.compareWithNull(argument, (KtTokens.EQEQ == opToken || KtTokens.EQEQEQ == opToken) ? IFNONNULL : IFNULL);
+        } else {
+            // If exp has a non-nullable type, the comparison is vacuous.
+            // For inline classes we cannot necessarily compare with null at all here, in which case the code
+            // below is necessary for correctness, not just an optimization.
+            return StackValue.operation(Type.BOOLEAN_TYPE, v -> {
+                argument.put(type, kotlinType, v);
+                AsmUtil.pop(v, type);
+                v.iconst((opToken == KtTokens.EXCLEQ || opToken == KtTokens.EXCLEQEQEQ) ? 1 : 0);
+                return Unit.INSTANCE;
+            });
+        }
     }
 
     private StackValue generateElvis(@NotNull KtBinaryExpression expression) {

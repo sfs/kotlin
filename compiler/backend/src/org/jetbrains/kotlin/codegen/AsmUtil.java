@@ -899,7 +899,7 @@ public class AsmUtil {
     }
 
     @NotNull
-    public static Unit genAreEqualCall(InstructionAdapter v, @NotNull IElementType opToken) {
+    private static Unit genAreEqualCall(InstructionAdapter v, @NotNull IElementType opToken) {
         genAreEqualCall(v);
 
         if (opToken == KtTokens.EXCLEQ || opToken == KtTokens.EXCLEQEQEQ) {
