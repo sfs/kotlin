@@ -174,17 +174,17 @@ fun IrTypeParameter.copyToWithoutSuperTypes(
     }
 }
 
-fun IrFunction.copyValueParametersFrom(from: IrFunction) {
+fun IrFunction.copyValueParametersFrom(from: IrFunction, origin: IrDeclarationOrigin? = null) {
     // TODO: should dispatch receiver be copied?
     dispatchReceiverParameter = from.dispatchReceiverParameter?.let {
-        IrValueParameterImpl(it.startOffset, it.endOffset, it.origin, it.descriptor, it.type, it.varargElementType).also {
+        IrValueParameterImpl(it.startOffset, it.endOffset, origin ?: it.origin, it.descriptor, it.type, it.varargElementType).also {
             it.parent = this
         }
     }
-    extensionReceiverParameter = from.extensionReceiverParameter?.copyTo(this)
+    extensionReceiverParameter = from.extensionReceiverParameter?.let { it.copyTo(this, origin = origin ?: it.origin) }
 
     val shift = valueParameters.size
-    valueParameters += from.valueParameters.map { it.copyTo(this, index = it.index + shift) }
+    valueParameters += from.valueParameters.map { it.copyTo(this, index = it.index + shift, origin = origin ?: it.origin) }
 }
 
 fun IrFunction.copyParameterDeclarationsFrom(from: IrFunction) {

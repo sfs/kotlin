@@ -23,10 +23,7 @@ import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.addConstructor
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrSetVariableImpl
+import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.IrVariableSymbol
 import org.jetbrains.kotlin.ir.types.IrType
@@ -92,6 +89,12 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
     private fun transformFunctionFlat(function: IrFunction): List<IrDeclaration>? {
         if (function.isPrimaryInlineClassConstructor)
             return null
+
+        if (function is IrConstructor) {
+            val constructorReplacement = context.inlineClassReplacements.getHiddenConstructor(function)
+            if (constructorReplacement != null)
+                return transformHiddenConstructorFlat(function, constructorReplacement)
+        }
 
         val replacement = context.inlineClassReplacements.getReplacementFunction(function)
         if (replacement == null) {
@@ -195,6 +198,31 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
         return listOf(worker)
     }
 
+    private fun transformHiddenConstructorFlat(original: IrConstructor, transformed: IrConstructor): List<IrDeclaration> {
+        // Copy the body of the original constructor to the hidden replacement
+        val originalValueSymbols = original.explicitParameters.map { it.symbol }
+        valueMap.putAll(originalValueSymbols.zip(transformed.explicitParameters))
+        transformed.body = original.body?.transform(this, null)?.patchDeclarationParents(transformed)
+
+        // Create the bridge method
+        val bridge = context.inlineClassReplacements.getConstructorBridge(original, context)!!
+        // We need to remap the default values in the value parameters
+        valueMap.putAll(originalValueSymbols.zip(bridge.explicitParameters))
+        bridge.transformChildrenVoid()
+        bridge.body = context.createIrBuilder(currentScope!!.scope.scopeOwnerSymbol).run {
+            // FIXME: Wrong number of type parameters?
+            val delegatingConstructorCall = irDelegatingConstructorCall(transformed).apply {
+                passTypeArgumentsFrom(bridge)
+                for ((from, to) in bridge.explicitParameters.zip(transformed.explicitParameters)) {
+                    putArgument(to, irGet(from))
+                }
+            }
+            irExprBody(delegatingConstructorCall)
+        }
+
+        return listOf(transformed, bridge)
+    }
+
     private fun typedArgumentList(function: IrFunction, expression: IrMemberAccessExpression) =
         listOfNotNull(
             function.dispatchReceiverParameter?.let { it to expression.dispatchReceiver },
@@ -219,7 +247,22 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
     }
 
     override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
-        val replacement = context.inlineClassReplacements.getReplacementFunction(expression.symbol.owner)
+        val original = expression.symbol.owner
+        if (original is IrConstructor) {
+            val bridge = context.inlineClassReplacements.getConstructorBridge(original, context)
+            if (bridge != null) {
+                return IrFunctionReferenceImpl(
+                    expression.startOffset, expression.endOffset, expression.type,
+                    bridge.symbol, bridge.descriptor,
+                    expression.typeArgumentsCount, bridge.valueParameters.size,
+                    expression.origin
+                ).apply {
+                    buildConstructorCall(bridge, expression)
+                }.copyAttributes(expression)
+            }
+        }
+
+        val replacement = context.inlineClassReplacements.getReplacementFunction(original)
             ?: return super.visitFunctionReference(expression)
         val function = replacement.function
 
@@ -240,6 +283,45 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
         return context.createIrBuilder(currentScope!!.scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset)
             .irCall(replacement.function).apply {
                 buildReplacement(function, expression, replacement)
+            }
+    }
+
+    private fun IrMemberAccessExpression.buildConstructorCall(irConstructor: IrConstructor, expression: IrMemberAccessExpression) {
+        copyTypeArgumentsFrom(expression)
+
+        expression.dispatchReceiver?.let {
+            dispatchReceiver = it.transform(this@JvmInlineClassLowering, null)
+        }
+
+        for (index in 0 until expression.valueArgumentsCount) {
+            val argument = expression.getValueArgument(index)!!.transform(this@JvmInlineClassLowering, null)
+            expression.putValueArgument(index, argument)
+        }
+
+        // Marker argument
+        putValueArgument(
+            expression.valueArgumentsCount,
+            IrConstImpl.constNull(UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.nothingNType)
+        )
+    }
+
+    override fun visitConstructorCall(expression: IrConstructorCall): IrExpression {
+        val bridge = context.inlineClassReplacements.getConstructorBridge(expression.symbol.owner, context)
+            ?: return super.visitConstructorCall(expression)
+
+        return context.createIrBuilder(currentScope!!.scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset)
+            .irCall(bridge.symbol).apply {
+                buildConstructorCall(bridge, expression)
+            }
+    }
+
+    override fun visitDelegatingConstructorCall(expression: IrDelegatingConstructorCall): IrExpression {
+        val bridge = context.inlineClassReplacements.getConstructorBridge(expression.symbol.owner, context)
+            ?: return super.visitDelegatingConstructorCall(expression)
+
+        return context.createIrBuilder(currentScope!!.scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset)
+            .irDelegatingConstructorCall(bridge).apply {
+                buildConstructorCall(bridge, expression)
             }
     }
 

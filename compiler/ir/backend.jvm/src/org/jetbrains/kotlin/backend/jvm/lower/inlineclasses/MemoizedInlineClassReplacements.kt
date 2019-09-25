@@ -5,14 +5,14 @@
 
 package org.jetbrains.kotlin.backend.jvm.lower.inlineclasses
 
-import org.jetbrains.kotlin.backend.common.ir.copyTo
-import org.jetbrains.kotlin.backend.common.ir.copyTypeParameters
-import org.jetbrains.kotlin.backend.common.ir.copyTypeParametersFrom
-import org.jetbrains.kotlin.backend.common.ir.createDispatchReceiverParameter
+import org.jetbrains.kotlin.backend.common.ir.*
+import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.InlineClassAbi.mangledNameFor
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
+import org.jetbrains.kotlin.descriptors.Visibilities.*
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
+import org.jetbrains.kotlin.ir.builders.declarations.buildConstructor
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildFunWithDescriptorForInlining
 import org.jetbrains.kotlin.ir.declarations.*
@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
 import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
+import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.constructedClass
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.explicitParameters
@@ -192,14 +193,70 @@ class MemoizedInlineClassReplacements {
                 origin = JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD
             }
             name = mangledNameFor(function)
-            returnType = function.returnType
         }.apply {
             parent = function.parent
-            if (function is IrConstructor) {
+            val shift = if (function is IrConstructor) {
                 copyTypeParameters(function.constructedClass.typeParameters + function.typeParameters)
+                function.constructedClass.typeParameters.size
             } else {
                 copyTypeParametersFrom(function)
+                0
             }
+            returnType = function.returnType.remapTypeParameters(function, this, shift)
             body()
         }
+
+    private val IrConstructor.shouldBeHidden
+        get() = !isPrivate(visibility) && !constructedClass.isInline && hasMangledParameters
+
+    val getHiddenConstructor: (IrConstructor) -> IrConstructor? =
+        storageManager.createMemoizedFunctionWithNullableValues { irConstructor ->
+            if (irConstructor.shouldBeHidden) {
+                // The hidden constructor does not contain the metadata, default parameters
+                // or annotations of the original. These are moved to the constructor bridge.
+                // This is different from normal bridges constructed in SyntheticAccessorLowering,
+                // which is why we need this special case in the first place.
+                buildConstructor {
+                    updateFrom(irConstructor)
+                    visibility = PRIVATE
+                }.apply {
+                    parent = irConstructor.parent
+                    copyTypeParametersFrom(irConstructor)
+                    copyValueParametersFrom(irConstructor)
+                    returnType = irConstructor.returnType.remapTypeParameters(irConstructor, this)
+                    for (param in explicitParameters) {
+                        param.annotations.clear()
+                        param.defaultValue = null
+                    }
+                }
+            } else {
+                null
+            }
+        }
+
+    private val constructorBridgeCache = storageManager.createCacheWithNotNullValues<IrConstructor, IrConstructor>()
+    fun getConstructorBridge(irConstructor: IrConstructor, context: JvmBackendContext): IrConstructor? {
+        if (!irConstructor.shouldBeHidden)
+            return null
+
+        return constructorBridgeCache.computeIfAbsent(irConstructor) {
+            buildConstructor {
+                updateFrom(irConstructor)
+                visibility = PUBLIC
+                origin = IrDeclarationOrigin.BRIDGE
+            }.apply {
+                parent = irConstructor.parent
+                metadata = irConstructor.metadata
+                annotations.addAll(irConstructor.annotations)
+                copyTypeParametersFrom(irConstructor, JvmLoweredDeclarationOrigin.SYNTHETIC_ACCESSOR)
+                copyValueParametersFrom(irConstructor, JvmLoweredDeclarationOrigin.SYNTHETIC_ACCESSOR)
+                addValueParameter(
+                    "marker",
+                    context.ir.symbols.defaultConstructorMarker.owner.defaultType.makeNullable(),
+                    JvmLoweredDeclarationOrigin.SYNTHETIC_ACCESSOR
+                )
+                returnType = irConstructor.returnType.remapTypeParameters(irConstructor, this)
+            }
+        }
+    }
 }
