@@ -87,4 +87,3 @@ FILE fqName:<root> fileName:/membersImportedFromObject.kt
       BLOCK_BODY
         RETURN type=kotlin.Nothing from='public final fun <get-test4> (): kotlin.Int declared in <root>'
           GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:test4 type:kotlin.Int visibility:private [final,static]' type=kotlin.Int origin=null
-

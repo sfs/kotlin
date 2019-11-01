@@ -84,4 +84,3 @@ FILE fqName:<root> fileName:/differentReceivers.kt
       BLOCK_BODY
         RETURN type=kotlin.Nothing from='public final fun <get-testOK> (): kotlin.String declared in <root>'
           GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:testOK type:kotlin.String visibility:private [final,static]' type=kotlin.String origin=null
-

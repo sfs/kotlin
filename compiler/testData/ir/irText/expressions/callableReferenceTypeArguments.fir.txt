@@ -58,4 +58,3 @@ FILE fqName:<root> fileName:/callableReferenceTypeArguments.kt
       BLOCK_BODY
         RETURN type=kotlin.Nothing from='public final fun <get-test3> (): kotlin.Function1<kotlin.Int, kotlin.Unit> declared in <root>'
           GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:test3 type:kotlin.Function1<kotlin.Int, kotlin.Unit> visibility:private [final,static]' type=kotlin.Function1<kotlin.Int, kotlin.Unit> origin=null
-

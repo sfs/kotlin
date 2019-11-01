@@ -129,4 +129,3 @@ FILE fqName:<root> fileName:/objectLiteralExpressions.kt
                 CALL 'public final fun println (message: kotlin.Any?): kotlin.Unit [inline] declared in kotlin.io' type=kotlin.Unit origin=null
                   message: CONST String type=kotlin.String value="foo"
           CONSTRUCTOR_CALL 'private constructor <init> () [primary] declared in <root>.test4.<no name provided>' type=<root>.test4.<no name provided> origin=null
-

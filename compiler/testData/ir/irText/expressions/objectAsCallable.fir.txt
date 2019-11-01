@@ -110,4 +110,3 @@ FILE fqName:<root> fileName:/objectAsCallable.kt
       BLOCK_BODY
         RETURN type=kotlin.Nothing from='public final fun <get-test2> (): IrErrorType declared in <root>'
           GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:test2 type:IrErrorType visibility:private [final,static]' type=IrErrorType origin=null
-
