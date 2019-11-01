@@ -142,6 +142,7 @@ fun generateDestructuringBlock(
                 isVar,
                 FirPropertySymbol(CallableId(entry.name)), // TODO?
                 true,
+                false,
                 FirDeclarationStatusImpl(Visibilities.LOCAL,  Modality.FINAL)
             ).apply {
                 annotations += entry.annotations

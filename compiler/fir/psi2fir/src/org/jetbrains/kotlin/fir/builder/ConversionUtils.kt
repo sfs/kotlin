@@ -282,6 +282,7 @@ internal fun generateDestructuringBlock(
                 isVar,
                 FirPropertySymbol(CallableId(entry.nameAsSafeName)), // TODO?
                 true,
+                false,
                 FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
             ).apply {
                 entry.extractAnnotationsTo(this)
@@ -304,6 +305,7 @@ fun generateTemporaryVariable(
         null,
         false,
         FirPropertySymbol(CallableId(name)),
+        true,
         true,
         FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
     ).apply {

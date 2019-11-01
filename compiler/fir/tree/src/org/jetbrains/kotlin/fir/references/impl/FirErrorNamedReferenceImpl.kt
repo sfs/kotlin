@@ -21,7 +21,7 @@ class FirErrorNamedReferenceImpl(
     override val source: FirSourceElement?,
     override val diagnostic: FirDiagnostic
 ) : FirErrorNamedReference() {
-    override val name: Name = Name.special("<${diagnostic.reason}>")
+    override val name: Name = Name.special("<$diagnostic.reason>")
     override val candidateSymbol: AbstractFirBasedSymbol<*>? get() = null
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {}

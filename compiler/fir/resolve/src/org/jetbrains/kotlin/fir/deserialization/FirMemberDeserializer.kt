@@ -181,6 +181,7 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
             isVar,
             symbol,
             false,
+            false,
             status
         ).apply {
             resolvePhase = FirResolvePhase.DECLARATIONS

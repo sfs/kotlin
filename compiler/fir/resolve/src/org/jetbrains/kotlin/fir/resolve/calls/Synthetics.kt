@@ -68,6 +68,7 @@ class FirSyntheticPropertiesScope(
             true,
             synthetic,
             false,
+            false,
             status
         ).apply {
             resolvePhase = fir.resolvePhase

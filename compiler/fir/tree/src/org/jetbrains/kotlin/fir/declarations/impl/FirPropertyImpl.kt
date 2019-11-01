@@ -41,6 +41,7 @@ class FirPropertyImpl(
     override val isVar: Boolean,
     override val symbol: FirPropertySymbol,
     override val isLocal: Boolean,
+    override val isTemporary: Boolean,
     override var status: FirDeclarationStatus
 ) : FirProperty(), FirModifiableVariable<FirProperty>, FirModifiableTypeParametersOwner, FirAbstractAnnotatedElement {
     override var resolvePhase: FirResolvePhase = if (isLocal) FirResolvePhase.DECLARATIONS else FirResolvePhase.RAW_FIR

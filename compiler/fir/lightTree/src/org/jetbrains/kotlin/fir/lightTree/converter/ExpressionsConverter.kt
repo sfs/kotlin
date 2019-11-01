@@ -505,6 +505,7 @@ class ExpressionsConverter(
                         false,
                         FirPropertySymbol(CallableId(variable.name)),
                         true,
+                        false,
                         FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
                     )
                 }

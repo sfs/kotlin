@@ -279,6 +279,7 @@ class RawFirBuilder(session: FirSession, val stubMode: Boolean) : BaseFirBuilder
                 isMutable,
                 FirPropertySymbol(callableIdForName(nameAsSafeName)),
                 false,
+                false,
                 status
             ).apply {
                 getter = FirDefaultPropertyGetter(propertySource, this@RawFirBuilder.session, type, visibility)
@@ -767,6 +768,7 @@ class RawFirBuilder(session: FirSession, val stubMode: Boolean) : BaseFirBuilder
                     isVar,
                     FirPropertySymbol(CallableId(name)),
                     true,
+                    false,
                     FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
                 ).apply {
                     generateAccessorsByDelegate(this@RawFirBuilder.session, member = false, stubMode = stubMode)
@@ -794,6 +796,7 @@ class RawFirBuilder(session: FirSession, val stubMode: Boolean) : BaseFirBuilder
                     } else null,
                     isVar,
                     FirPropertySymbol(callableIdForName(name)),
+                    false,
                     false,
                     status
                 ).apply {
@@ -1009,6 +1012,7 @@ class RawFirBuilder(session: FirSession, val stubMode: Boolean) : BaseFirBuilder
                         false,
                         FirPropertySymbol(CallableId(name)),
                         true,
+                        false,
                         FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
                     )
                 }
@@ -1097,14 +1101,27 @@ class RawFirBuilder(session: FirSession, val stubMode: Boolean) : BaseFirBuilder
                     }
                     if (parameter != null) {
                         val multiDeclaration = parameter.destructuringDeclaration
-                        val firLoopParameter = generateTemporaryVariable(
-                            this@RawFirBuilder.session, expression.loopParameter?.toFirSourceElement(),
-                            if (multiDeclaration != null) Name.special("<destruct>") else parameter.nameAsSafeName,
+                        val source = expression.loopParameter?.toFirSourceElement()
+                        val name = if (multiDeclaration != null) Name.special("<destruct>") else parameter.nameAsSafeName
+                        val firLoopParameter = FirPropertyImpl(
+                            source,
+                            this@RawFirBuilder.session,
+                            FirImplicitTypeRefImpl(source),
+                            null,
+                            name,
                             FirFunctionCallImpl(loopSource).apply {
                                 calleeReference = FirSimpleNamedReference(loopSource, Name.identifier("next"), null)
                                 explicitReceiver = generateResolvedAccessExpression(loopSource, iteratorVal)
-                            }
-                        )
+                            },
+                            null,
+                            false,
+                            FirPropertySymbol(CallableId(name)),
+                            true,
+                            multiDeclaration != null,
+                            FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
+                        ).apply {
+                            symbol.bind(this)
+                        }
                         if (multiDeclaration != null) {
                             val destructuringBlock = generateDestructuringBlock(
                                 this@RawFirBuilder.session,

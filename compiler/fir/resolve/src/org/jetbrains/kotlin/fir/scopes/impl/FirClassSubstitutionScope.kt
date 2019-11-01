@@ -188,6 +188,7 @@ class FirClassSubstitutionScope(
                     isVar,
                     symbol,
                     false,
+                    false,
                     baseProperty.status
                 ).apply {
                     resolvePhase = baseProperty.resolvePhase

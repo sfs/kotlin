@@ -822,6 +822,7 @@ class DeclarationsConverter(
                 isVar,
                 FirPropertySymbol(CallableId(propertyName)),
                 true,
+                false,
                 FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
             ).apply {
                 annotations += modifiers.annotations
@@ -850,6 +851,7 @@ class DeclarationsConverter(
                 },
                 isVar,
                 FirPropertySymbol(callableIdForName(propertyName)),
+                false,
                 false,
                 status
             ).apply {
@@ -911,6 +913,7 @@ class DeclarationsConverter(
             false,
             FirPropertySymbol(CallableId(name)),
             true,
+            false,
             FirDeclarationStatusImpl(Visibilities.LOCAL, Modality.FINAL)
         ).apply {
             annotations += modifiers.annotations

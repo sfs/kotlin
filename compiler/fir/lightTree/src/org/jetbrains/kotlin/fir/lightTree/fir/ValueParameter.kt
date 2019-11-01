@@ -63,6 +63,7 @@ class ValueParameter(
             this.isVar,
             FirPropertySymbol(callableId),
             false,
+            false,
             status
         ).apply {
             annotations += this@ValueParameter.firValueParameter.annotations

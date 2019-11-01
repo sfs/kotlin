@@ -287,6 +287,7 @@ object NodeConfigurator : AbstractFieldConfigurator() {
             +symbol("FirPropertySymbol")
             +field("backingFieldSymbol", backingFieldSymbolType)
             +booleanField("isLocal")
+            +booleanField("isTemporary")
             +typeParameters
             +status
         }
