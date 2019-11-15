@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildFunWithDescriptorForInlining
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionBase
 import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
@@ -28,6 +29,7 @@ import org.jetbrains.kotlin.ir.util.explicitParameters
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.InlineClassDescriptorResolver
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class IrReplacementFunction(
     val function: IrFunction,
@@ -133,6 +135,9 @@ class MemoizedInlineClassReplacements {
 
     private fun createMethodReplacement(function: IrFunction): IrReplacementFunction? {
         require(function.dispatchReceiverParameter != null && function is IrSimpleFunction)
+        if (function.overriddenSymbols.isNotEmpty()) {
+            // In general, we have to split up overrides between mangled functions and
+        }
         val overrides = function.overriddenSymbols.mapNotNull {
             getReplacementFunction(it.owner)?.function?.symbol as? IrSimpleFunctionSymbol
         }
@@ -143,6 +148,7 @@ class MemoizedInlineClassReplacements {
         val replacement = buildReplacement(function) {
             annotations += function.annotations
             metadata = function.metadata
+            function.safeAs<IrFunctionBase>()?.metadata = null
             overriddenSymbols.addAll(overrides)
 
             for ((index, parameter) in function.explicitParameters.withIndex()) {

@@ -10765,6 +10765,21 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
                 KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/codegen/box/inlineClasses/interfaceMethodCalls"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.JS_IR, true);
             }
 
+            @TestMetadata("complexGenericMethodWithInlineClassOverride.kt")
+            public void testComplexGenericMethodWithInlineClassOverride() throws Exception {
+                runTest("compiler/testData/codegen/box/inlineClasses/interfaceMethodCalls/complexGenericMethodWithInlineClassOverride.kt");
+            }
+
+            @TestMetadata("complexGenericMethodWithInlineClassOverride2.kt")
+            public void testComplexGenericMethodWithInlineClassOverride2() throws Exception {
+                runTest("compiler/testData/codegen/box/inlineClasses/interfaceMethodCalls/complexGenericMethodWithInlineClassOverride2.kt");
+            }
+
+            @TestMetadata("complexGenericMethodWithInlineClassOverride3.kt")
+            public void testComplexGenericMethodWithInlineClassOverride3() throws Exception {
+                runTest("compiler/testData/codegen/box/inlineClasses/interfaceMethodCalls/complexGenericMethodWithInlineClassOverride3.kt");
+            }
+
             @TestMetadata("defaultInterfaceExtensionFunCall.kt")
             public void testDefaultInterfaceExtensionFunCall() throws Exception {
                 runTest("compiler/testData/codegen/box/inlineClasses/interfaceMethodCalls/defaultInterfaceExtensionFunCall.kt");
@@ -10788,6 +10803,11 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
             @TestMetadata("genericInterfaceMethodCall.kt")
             public void testGenericInterfaceMethodCall() throws Exception {
                 runTest("compiler/testData/codegen/box/inlineClasses/interfaceMethodCalls/genericInterfaceMethodCall.kt");
+            }
+
+            @TestMetadata("genericMethodWithInlineClassOverride.kt")
+            public void testGenericMethodWithInlineClassOverride() throws Exception {
+                runTest("compiler/testData/codegen/box/inlineClasses/interfaceMethodCalls/genericMethodWithInlineClassOverride.kt");
             }
 
             @TestMetadata("overriddenDefaultInterfaceMethodCall.kt")

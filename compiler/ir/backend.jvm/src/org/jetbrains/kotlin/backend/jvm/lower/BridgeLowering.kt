@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrValueParameterImpl
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.util.defaultType
@@ -56,36 +57,30 @@ private class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPass
 
     private val specialBridgeMethods = SpecialBridgeMethods(context)
 
+    private val IrSimpleFunction.needsNoBridge: Boolean
+        get() = !comesFromJava() && modality != Modality.ABSTRACT && (parent.safeAs<IrClass>()?.isInterface != true || hasJvmDefault())
+
     override fun lower(irClass: IrClass) {
         if (irClass.origin == JvmLoweredDeclarationOrigin.DEFAULT_IMPLS) {
             return
         }
 
-        for (member in irClass.declarations.filterIsInstance<IrSimpleFunction>()) {
-            if (!irClass.isInterface || member.hasJvmDefault())
-                createBridges(member)
+        val newDeclarations = listOf<IrSimpleFunction>()
+        for (member in irClass.declarations) {
+            if (member !is IrSimpleFunction || member.isStatic || member.isMethodOfAny() || irClass.isInterface && member.hasJvmDefault())
+                continue
+
+            if (member.origin == IrDeclarationOrigin.FAKE_OVERRIDE && member.needsNoBridge)
+                // All needed bridges will be generated where functions are implemented.
+                continue
+
+            newDeclarations += createBridges(member)
         }
+        irClass.declarations += newDeclarations
     }
 
 
-    private fun createBridges(irFunction: IrSimpleFunction) {
-        if (irFunction.isStatic) return
-        if (irFunction.isMethodOfAny()) return
-
-        if (irFunction.origin === IrDeclarationOrigin.FAKE_OVERRIDE &&
-            irFunction.overriddenSymbols.all {
-                !it.owner.comesFromJava() &&
-                        if ((it.owner.parent as? IrClass)?.isInterface == true)
-                            it.owner.hasJvmDefault() // TODO: Remove this after modality is corrected in InterfaceLowering.
-                        else
-                            it.owner.modality !== Modality.ABSTRACT
-            }
-        ) {
-            // All needed bridges will be generated where functions are implemented.
-            return
-        }
-
-
+    private fun createBridges(irFunction: IrSimpleFunction): List<IrSimpleFunction> {
         val irClass = irFunction.parentAsClass
         val ourSignature = irFunction.getJvmSignature()
         val ourMethodName = ourSignature.name

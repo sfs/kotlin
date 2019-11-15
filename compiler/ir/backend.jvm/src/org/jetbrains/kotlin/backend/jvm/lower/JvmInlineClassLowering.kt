@@ -113,7 +113,7 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
         worker.body = function.body?.transform(this, null)?.patchDeclarationParents(worker)
 
         // Don't create a wrapper for functions which are only used in an unboxed context
-        if (function.overriddenSymbols.isEmpty() || worker.dispatchReceiverParameter != null)
+        if (function.overriddenSymbols.isEmpty())
             return listOf(worker)
 
         // Replace the function body with a wrapper
