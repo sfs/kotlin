@@ -103,7 +103,10 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
 
     private fun getClasspathForTest(): List<File> {
         val kotlinRuntimeJar = PathUtil.kotlinPathsForIdeaPlugin.stdlibPath
-        val layoutLibJars = listOf(File(androidPluginPath, "layoutlib.jar"), File(androidPluginPath, "layoutlib-api.jar"))
+        val layoutLibJars = listOf(
+            File(androidPluginPath, "layoutlib-26.5.0.2.jar"),
+            File(androidPluginPath, "layoutlib-api-26.5.0.jar")
+        )
 
         val robolectricClasspath = System.getProperty("robolectric.classpath")
             ?: throw RuntimeException("Unable to get a valid classpath from 'robolectric.classpath' property, please set it accordingly")
@@ -112,7 +115,8 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
             .sortedBy { it.nameWithoutExtension }
 
         val junitCoreResourceName = JUnitCore::class.java.name.replace('.', '/') + ".class"
-        val junitJar = File(JUnitCore::class.java.classLoader.getResource(junitCoreResourceName).file.substringBeforeLast('!'))
+        val junitJar =
+            File(JUnitCore::class.java.classLoader.getResource(junitCoreResourceName).file.substringAfter("file:").substringBeforeLast('!'))
 
         val androidExtensionsRuntimeJars = System.getProperty("androidExtensionsRuntime.classpath")?.split(File.pathSeparator)?.map(::File)
             ?: error("Unable to get a valid classpath from 'androidExtensionsRuntime.classpath' property")
@@ -142,13 +146,16 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
             val process = ProcessBuilder(
                 javaExe.absolutePath,
                 "-ea",
+//                "-Drobolectric.offline=true",
+//                "-Drobolectric.logging.enabled=true",
                 "-classpath",
                 (libraryClasspath + dirForTestClasses).joinToString(File.pathSeparator),
                 JUnitCore::class.java.name,
                 JUNIT_GENERATED_TEST_CLASS_FQNAME
-            ).inheritIO().start()
+            )/*.inheritIO()*/.start()
 
             process.waitFor(3, TimeUnit.MINUTES)
+            print(process.inputStream.bufferedReader().lineSequence().joinToString("\n"))
             if (process.exitValue() != 0) {
                 throw AssertionError("Process exited with exit code ${process.exitValue()} \n" + classFileFactory.createText())
             }
@@ -162,6 +169,6 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
     override fun setupEnvironment(environment: KotlinCoreEnvironment) {
         AndroidComponentRegistrar.registerParcelExtensions(environment.project)
         addAndroidExtensionsRuntimeLibrary(environment)
-        environment.updateClasspath(listOf(JvmClasspathRoot(File(androidPluginPath, "layoutlib.jar"))))
+        environment.updateClasspath(listOf(JvmClasspathRoot(File(androidPluginPath, "layoutlib-26.5.0.2.jar"))))
     }
 }
