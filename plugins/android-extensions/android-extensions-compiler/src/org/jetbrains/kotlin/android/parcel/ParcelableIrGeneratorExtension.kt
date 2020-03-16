@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.android.parcel.serializers.ParcelableExtensionBase.C
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.extensions.PureIrGenerationExtension
+import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -42,7 +43,8 @@ class ParcelableIrGeneratorExtension : PureIrGenerationExtension {
     }
 }
 
-class ParcelableIrTransformer(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols) : ParcelableExtensionBase, IrElementTransformerVoidWithContext() {
+class ParcelableIrTransformer(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols) :
+    ParcelableExtensionBase, IrElementTransformerVoidWithContext() {
     private val serializerFactory = IrParcelSerializerFactory(context, androidSymbols)
 
     override fun visitClassNew(declaration: IrClass): IrStatement {
@@ -65,12 +67,18 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
             val flagsParameter = addValueParameter("flags", context.irBuiltIns.intType)
 
             body = context.createIrBuilder(symbol).irBlockBody {
-                for (property in parcelableProperties) {
-                    with(property.parceler) {
-                        +writeParcel(
-                            parcelParameter,
-                            irGetField(irGet(receiverParameter), property.field)
-                        )
+                if (parcelableProperties.isNotEmpty()) {
+                    for (property in parcelableProperties) {
+                        with(property.parceler) {
+                            +writeParcel(
+                                parcelParameter,
+                                irGetField(irGet(receiverParameter), property.field)
+                            )
+                        }
+                    }
+                } else {
+                    with(declaration.classParceler) {
+                        +writeParcel(parcelParameter, irGet(receiverParameter))
                     }
                 }
             }
@@ -102,6 +110,7 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
 
                 val arrayType = context.irBuiltIns.arrayClass.typeWith(declaration.defaultType.makeNullable())
                 addFunction("newArray", arrayType).apply {
+                    overriddenSymbols += androidSymbols.parcelableCreator.getSimpleFunction(name.asString())!!
                     val sizeParameter = addValueParameter("size", context.irBuiltIns.intType)
                     body = context.createIrBuilder(symbol).run {
                         irExprBody(irCall(this@ParcelableIrTransformer.context.ir.symbols.arrayOfNulls, arrayType).apply {
@@ -112,13 +121,20 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
                 }
 
                 addFunction("createFromParcel", declaration.defaultType).apply {
+                    overriddenSymbols += androidSymbols.parcelableCreator.getSimpleFunction(name.asString())!!
                     val parcelParameter = addValueParameter("parcel", androidSymbols.parcelClass.defaultType)
                     body = context.createIrBuilder(symbol).run {
-                        irExprBody(irCall(declaration.primaryConstructor!!).apply {
-                            for ((index, property) in parcelableProperties.withIndex()) {
-                                with(property.parceler) {
-                                    putValueArgument(index, readParcel(parcelParameter))
+                        irExprBody(if (parcelableProperties.isNotEmpty()) {
+                            irCall(declaration.primaryConstructor!!).apply {
+                                for ((index, property) in parcelableProperties.withIndex()) {
+                                    with(property.parceler) {
+                                        putValueArgument(index, readParcel(parcelParameter))
+                                    }
                                 }
+                            }
+                        } else {
+                            with(declaration.classParceler) {
+                                readParcel(parcelParameter)
                             }
                         })
                     }
@@ -138,6 +154,14 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
 
 
     private data class ParcelableProperty(val field: IrField, val parceler: IrParcelSerializer)
+
+    private val IrClass.classParceler: IrParcelSerializer
+        get() = if (kind == ClassKind.CLASS) {
+            // TODO Go through the factory instead
+            NullAwareParcelSerializer(defaultType, NoParameterClassSerializer(defaultType), androidSymbols, context.irBuiltIns)
+        } else {
+            serializerFactory.get(defaultType)
+        }
 
     private val IrClass.parcelableProperties: List<ParcelableProperty>
         get() {
@@ -168,50 +192,68 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
 
     private data class Info(val fqName: String, val serializer: IrParcelSerializer, val nullable: Boolean? = null)
 
-    private val byteSerializer = PrimitiveParcelSerializer(builtIns.byteType, symbols.parcelReadByte, symbols.parcelWriteByte)
-    private val intSerializer = PrimitiveParcelSerializer(builtIns.charType, symbols.parcelReadInt, symbols.parcelWriteInt)
-    private val longSerializer = PrimitiveParcelSerializer(builtIns.longType, symbols.parcelReadLong, symbols.parcelWriteLong)
-    private val floatSerializer = PrimitiveParcelSerializer(builtIns.floatType, symbols.parcelReadFloat, symbols.parceWriteFloat)
-    private val doubleSerializer = PrimitiveParcelSerializer(builtIns.doubleType, symbols.parcelReadDouble, symbols.parcelWriteDouble)
+    private val stringSerializer = PrimitiveParcelSerializer(symbols.parcelReadString, symbols.parcelWriteString)
+    private val byteSerializer = PrimitiveParcelSerializer(symbols.parcelReadByte, symbols.parcelWriteByte)
+    private val intSerializer = PrimitiveParcelSerializer(symbols.parcelReadInt, symbols.parcelWriteInt)
+    private val longSerializer = PrimitiveParcelSerializer(symbols.parcelReadLong, symbols.parcelWriteLong)
+    private val floatSerializer = PrimitiveParcelSerializer(symbols.parcelReadFloat, symbols.parceWriteFloat)
+    private val doubleSerializer = PrimitiveParcelSerializer(symbols.parcelReadDouble, symbols.parcelWriteDouble)
 
     private val booleanSerializer = BoxedPrimitiveParcelSerializer(builtIns.booleanType, intSerializer)
     private val shortSerializer = BoxedPrimitiveParcelSerializer(builtIns.shortType, intSerializer)
     private val charSerializer = BoxedPrimitiveParcelSerializer(builtIns.charType, intSerializer)
 
     private val intArraySerializer = PrimitiveParcelSerializer(
-        builtIns.primitiveArrayForType.getValue(builtIns.intType).owner.defaultType, symbols.parcelReadIntArray, symbols.parcelWriteIntArray
+        symbols.parcelReadIntArray, symbols.parcelWriteIntArray, builtIns.primitiveArrayForType.getValue(builtIns.intType).owner.defaultType
     )
 
     private val booleanArraySerializer = PrimitiveParcelSerializer(
-        builtIns.primitiveArrayForType.getValue(builtIns.booleanType).owner.defaultType, symbols.parcelReadBooleanArray, symbols.parcelWriteBooleanArray
+        symbols.parcelReadBooleanArray,
+        symbols.parcelWriteBooleanArray,
+        builtIns.primitiveArrayForType.getValue(builtIns.booleanType).owner.defaultType
     )
 
     private val byteArraySerializer = PrimitiveParcelSerializer(
-        builtIns.primitiveArrayForType.getValue(builtIns.byteType).owner.defaultType, symbols.parcelReadByteArray, symbols.parcelWriteByteArray
+        symbols.parcelReadByteArray,
+        symbols.parcelWriteByteArray,
+        builtIns.primitiveArrayForType.getValue(builtIns.byteType).owner.defaultType
     )
 
     private val charArraySerializer = PrimitiveParcelSerializer(
-        builtIns.primitiveArrayForType.getValue(builtIns.charType).owner.defaultType, symbols.parcelReadCharArray, symbols.parcelWriteCharArray
+        symbols.parcelReadCharArray,
+        symbols.parcelWriteCharArray,
+        builtIns.primitiveArrayForType.getValue(builtIns.charType).owner.defaultType
     )
 
     private val doubleArraySerializer = PrimitiveParcelSerializer(
-        builtIns.primitiveArrayForType.getValue(builtIns.doubleType).owner.defaultType, symbols.parcelReadDoubleArray, symbols.parcelWriteDoubleArray
+        symbols.parcelReadDoubleArray,
+        symbols.parcelWriteDoubleArray,
+        builtIns.primitiveArrayForType.getValue(builtIns.doubleType).owner.defaultType
     )
 
     private val floatArraySerializer = PrimitiveParcelSerializer(
-        builtIns.primitiveArrayForType.getValue(builtIns.floatType).owner.defaultType, symbols.parcelReadFloatArray, symbols.parcelWriteFloatArray
+        symbols.parcelReadFloatArray,
+        symbols.parcelWriteFloatArray,
+        builtIns.primitiveArrayForType.getValue(builtIns.floatType).owner.defaultType
     )
 
     private val longArraySerializer = PrimitiveParcelSerializer(
-        builtIns.primitiveArrayForType.getValue(builtIns.longType).owner.defaultType, symbols.parcelReadLongArray, symbols.parcelWriteLongArray
+        symbols.parcelReadLongArray,
+        symbols.parcelWriteLongArray,
+        builtIns.primitiveArrayForType.getValue(builtIns.longType).owner.defaultType
     )
 
     private val stringArraySerializer = PrimitiveParcelSerializer(
-        builtIns.arrayClass.typeWith(builtIns.stringType), symbols.parcelReadStringArray, symbols.parcelWriteStringArray
+        symbols.parcelReadStringArray, symbols.parcelWriteStringArray, builtIns.arrayClass.typeWith(builtIns.stringType)
     )
 
+    // TODO Add tests for IBinder, IInterface, and IBinder arrays
+    private val iBinderSerializer = PrimitiveParcelSerializer(symbols.parcelReadIBinder, symbols.parcelWriteIBinder)
+    private val iInterfaceSerializer = PrimitiveParcelSerializer(symbols.parcelReadIInterface, symbols.parcelWriteIInterface)
+    private val iBinderArraySerializer = PrimitiveParcelSerializer(symbols.parcelReadIBinderArray, symbols.parcelWriteIBinderArray)
+
     private val serializerInfos = listOf<Info>(
-        Info("kotlin.String", PrimitiveParcelSerializer(builtIns.stringType, symbols.parcelReadString, symbols.parcelWriteString)),
+        Info("kotlin.String", stringSerializer),
         Info("kotlin.Byte", byteSerializer, false),
         Info("kotlin.Boolean", booleanSerializer, false),
         Info("kotlin.Char", charSerializer, false),
@@ -230,6 +272,7 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
         Info("java.lang.Float", floatSerializer),
         Info("java.lang.Double", doubleSerializer),
 
+        // FIXME: Only use this if we don't have a custom parceler for the element type
         Info("kotlin.IntArray", intArraySerializer),
         Info("kotlin.BooleanArray", booleanArraySerializer),
         Info("kotlin.ByteArray", byteArraySerializer),
@@ -237,6 +280,18 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
         Info("kotlin.FloatArray", floatArraySerializer),
         Info("kotlin.DoubleArray", doubleArraySerializer),
         Info("kotlin.LongArray", longArraySerializer),
+
+        // Android library types
+
+        // TODO Add test for persistable bundles, and maybe pass a classloader when deserializing a bundle?
+        Info("android.os.Bundle", PrimitiveParcelSerializer(symbols.parcelReadBundle, symbols.parcelWriteBundle)),
+        Info("android.os.PersistableBundle", PrimitiveParcelSerializer(symbols.parcelReadBundle, symbols.parcelWriteBundle)),
+        Info(
+            "android.util.SparseBooleanArray", PrimitiveParcelSerializer(
+                symbols.parcelReadSparseBooleanArray,
+                symbols.parcelWriteSparseBooleanArray
+            )
+        )
     )
 
     // Map from simple name -> package name -> pair of non-null and nullable serializer
@@ -281,10 +336,19 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
             else -> error("Unknown type argument: ${render()}")
         }
 
+    private val IrType.erasure: IrClass
+        get() {
+            val upperBound = erasedUpperBound
+            // TODO: Should we unwrap inline class types at all? That does not seem very consistent.
+            return ((context.ir.unfoldInlineClassType(upperBound.defaultType) as? IrSimpleType)?.classifier as? IrClassSymbol)?.owner
+                ?: upperBound
+        }
+
+    private fun IrClass.isSubclassOfFqName(fqName: String): Boolean =
+        fqNameWhenAvailable?.asString() == fqName || superTypes.any { it.erasedUpperBound.isSubclassOfFqName(fqName) }
+
     fun get(irType: IrType): IrParcelSerializer {
-        val upperBound = irType.erasedUpperBound
-        val classifier = ((context.ir.unfoldInlineClassType(upperBound.defaultType) as? IrSimpleType)?.classifier as? IrClassSymbol)?.owner
-            ?: upperBound
+        val classifier = irType.erasure
 
         serializerMap[classifier.name.asString()]?.let { fqNameMap ->
             classifier.fqNameWhenAvailable?.parent()?.let { fqName ->
@@ -297,11 +361,28 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
             }
         }
 
+        if (classifier.isSubclassOfFqName("android.os.IBinder")) {
+            return iBinderSerializer
+        } else if (classifier.isSubclassOfFqName("android.os.IInterface")) {
+            return iInterfaceSerializer
+        }
+
+        if (classifier.isObject) {
+            return NullAwareParcelSerializer(classifier.defaultType, ObjectSerializer(classifier.defaultType), symbols, builtIns)
+        } else if (classifier.isEnumClass) {
+            return NullAwareParcelSerializer(classifier.defaultType, EnumSerializer(classifier.defaultType, stringSerializer), symbols, builtIns)
+        }
+
         // TODO: Handle arrays in inline classes/as upper bounds
         if (irType.isArray() || irType.isNullableArray()) {
             val elementType = (irType as IrSimpleType).arguments.single().upperBound
             if (elementType.isStringClassType()) {
                 return stringArraySerializer
+            } else {
+                val elementFqName = elementType.erasedUpperBound.fqNameWhenAvailable
+                if (elementFqName?.asString() == "android.os.IBinder") {
+                    return iBinderArraySerializer
+                }
             }
         }
 
@@ -322,6 +403,7 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
         )
 
     private val androidOsPackage = createPackage(FqName("android.os"))
+    private val androidUtilPackage = createPackage(FqName("android.util"))
 
     private inline fun createClass(
         fqName: FqName,
@@ -336,11 +418,15 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
         }.apply {
             parent = when (fqName.parent().asString()) {
                 "android.os" -> androidOsPackage
+                "android.util" -> androidUtilPackage
                 else -> error("Other packages are not supported yet: $fqName")
             }
             createImplicitParameterDeclarationWithWrappedDescriptor()
             block(this)
         }.symbol
+
+    private val androidOsBundle: IrClassSymbol = createClass(FqName("android.os.Bundle"))
+    private val sparseBooleanArray: IrClassSymbol = createClass(FqName("android.util.SparseBooleanArray"))
 
     val parcelClass: IrClassSymbol = createClass(FqName("android.os.Parcel"))
 
@@ -353,7 +439,7 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
         parcelUnary("write$name", type)
 
     private fun parcelReadArray(name: String, type: IrType): IrSimpleFunctionSymbol =
-        parcelClass.owner.addFunction("read${name}Array", context.irBuiltIns.arrayClass.typeWith(type)).symbol
+        parcelClass.owner.addFunction("create${name}Array", context.irBuiltIns.arrayClass.typeWith(type)).symbol
 
     private fun parcelWriteArray(name: String, type: IrType): IrSimpleFunctionSymbol =
         parcelUnary("write${name}Array", context.irBuiltIns.arrayClass.typeWith(type))
@@ -442,6 +528,42 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
     val parcelWriteStringArray: IrSimpleFunctionSymbol =
         parcelWriteArray("String", context.irBuiltIns.stringType)
 
+    val parcelReadBundle: IrSimpleFunctionSymbol =
+        parcelClass.owner.addFunction("readBundle", androidOsBundle.defaultType).symbol
+
+    val parcelWriteBundle: IrSimpleFunctionSymbol =
+        parcelUnary("writeBundle", androidOsBundle.defaultType)
+
+    val parcelReadSparseBooleanArray: IrSimpleFunctionSymbol =
+        parcelClass.owner.addFunction("readSparseBooleanArray", sparseBooleanArray.defaultType).symbol
+
+    val parcelWriteSparseBooleanArray: IrSimpleFunctionSymbol =
+        parcelUnary("writeSparseBooleanArray", sparseBooleanArray.defaultType)
+
+    private val androidOsIBinder: IrClassSymbol =
+        createClass(FqName("android.os.IBinder"))
+
+    private val androidOsIInterface: IrClassSymbol =
+        createClass(FqName("android.os.IInterface"))
+
+    val parcelReadIBinder: IrSimpleFunctionSymbol =
+        parcelClass.owner.addFunction("readStrongBinder", androidOsIBinder.defaultType).symbol
+
+    val parcelWriteIBinder: IrSimpleFunctionSymbol =
+        parcelUnary("writeStrongBinder", androidOsIBinder.defaultType)
+
+    val parcelReadIBinderArray: IrSimpleFunctionSymbol =
+        parcelReadArray("Binder", androidOsIBinder.defaultType)
+
+    val parcelWriteIBinderArray: IrSimpleFunctionSymbol =
+        parcelWriteArray("Binder", androidOsIBinder.defaultType)
+
+    val parcelReadIInterface: IrSimpleFunctionSymbol =
+        parcelClass.owner.addFunction("readStrongInterface", androidOsIInterface.defaultType).symbol
+
+    val parcelWriteIInterface: IrSimpleFunctionSymbol =
+        parcelUnary("writeStrongInterface", androidOsIInterface.defaultType)
+
     private val parcelableInterface: IrClassSymbol =
         createClass(FqName("android.os.Parcelable"), ClassKind.INTERFACE, Modality.ABSTRACT)
 
@@ -451,9 +573,19 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
             kind = ClassKind.INTERFACE
             modality = Modality.ABSTRACT
         }.apply {
-            addTypeParameter("T", context.irBuiltIns.anyNType)
+            val t = addTypeParameter("T", context.irBuiltIns.anyNType)
             parent = parcelableInterface.owner
             createImplicitParameterDeclarationWithWrappedDescriptor()
+
+            addFunction("createFromParcel", t.defaultType, Modality.ABSTRACT, isStatic = true).apply {
+                dispatchReceiverParameter = thisReceiver!!.copyTo(this, type = thisReceiver!!.type)
+                addValueParameter("source", parcelClass.defaultType)
+            }
+
+            addFunction("newArray", context.irBuiltIns.arrayClass.typeWith(t.defaultType), Modality.ABSTRACT, isStatic = true).apply {
+                dispatchReceiverParameter = thisReceiver!!.copyTo(this, type = thisReceiver!!.type)
+                addValueParameter("size", context.irBuiltIns.intType)
+            }
         }.symbol
 }
 
@@ -463,7 +595,8 @@ interface IrParcelSerializer {
     fun IrBuilderWithScope.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression
 }
 
-class BoxedPrimitiveParcelSerializer(override val parcelType: IrType, val serializer: PrimitiveParcelSerializer) : IrParcelSerializer by serializer {
+class BoxedPrimitiveParcelSerializer(override val parcelType: IrType, val serializer: PrimitiveParcelSerializer) :
+    IrParcelSerializer by serializer {
     override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression {
         val deserializedPrimitive = with(serializer) { readParcel(parcel) }
         return if (parcelType.isBoolean()) {
@@ -477,14 +610,18 @@ class BoxedPrimitiveParcelSerializer(override val parcelType: IrType, val serial
             val conversion = deserializedPrimitive.type.getClass()!!.functions.first { function ->
                 function.name.asString() == "to${parcelType.getClass()!!.name}"
             }
-            irCall(conversion).apply{
+            irCall(conversion).apply {
                 dispatchReceiver = deserializedPrimitive
             }
         }
     }
 }
 
-class PrimitiveParcelSerializer(override val parcelType: IrType, val reader: IrFunctionSymbol, val writer: IrFunctionSymbol) : IrParcelSerializer {
+class PrimitiveParcelSerializer(
+    val reader: IrFunctionSymbol,
+    val writer: IrFunctionSymbol,
+    override val parcelType: IrType = reader.owner.returnType
+) : IrParcelSerializer {
     private fun IrBuilderWithScope.castIfNeeded(expression: IrExpression, type: IrType): IrExpression =
         if (expression.type != type) irImplicitCast(expression, type) else expression
 
@@ -500,12 +637,17 @@ class PrimitiveParcelSerializer(override val parcelType: IrType, val reader: IrF
         }
 }
 
-class NullAwareParcelSerializer(override val parcelType: IrType, val serializer: IrParcelSerializer, val symbols: AndroidSymbols, val irBuiltIns: IrBuiltIns) : IrParcelSerializer {
+class NullAwareParcelSerializer(
+    override val parcelType: IrType,
+    val serializer: IrParcelSerializer,
+    val symbols: AndroidSymbols,
+    val irBuiltIns: IrBuiltIns
+) : IrParcelSerializer {
     override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression =
         irIfThenElse(
             parcelType,
             irEquals(irCall(symbols.parcelReadInt).apply {
-                putValueArgument(0, irGet(parcel))
+                dispatchReceiver = irGet(parcel)
             }, irInt(0)),
             irNull(),
             with(serializer) { readParcel(parcel) }
@@ -517,16 +659,58 @@ class NullAwareParcelSerializer(override val parcelType: IrType, val serializer:
                 irBuiltIns.unitType,
                 irGet(irValueSymbol.owner),
                 irCall(symbols.parcelWriteInt).apply {
-                    putValueArgument(0, irGet(parcel))
-                    putValueArgument(1, irInt(0))
+                    dispatchReceiver = irGet(parcel)
+                    putValueArgument(0, irInt(0))
                 },
                 irBlock {
                     +irCall(symbols.parcelWriteInt).apply {
-                        putValueArgument(0, irGet(parcel))
-                        putValueArgument(1, irInt(1))
+                        dispatchReceiver = irGet(parcel)
+                        putValueArgument(0, irInt(1))
                     }
                     +with(serializer) { writeParcel(parcel, irGet(irValueSymbol.owner)) }
                 }
             )
         }
+}
+
+class ObjectSerializer(override val parcelType: IrType) : IrParcelSerializer {
+    override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression {
+        return irGetObject(parcelType.classOrNull!!)
+    }
+
+    override fun IrBuilderWithScope.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression {
+        return irNull() // TODO: Don't generate an expression here...
+    }
+}
+
+class EnumSerializer(override val parcelType: IrType, val stringSerializer: PrimitiveParcelSerializer) : IrParcelSerializer {
+    override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression {
+        // TODO More precise matching for valueOf function
+        val enumValueOfFunction = parcelType.classOrNull!!.getSimpleFunction("valueOf")!!
+        return irCall(enumValueOfFunction).apply {
+            putValueArgument(0, with(stringSerializer) {
+                readParcel(parcel)
+            })
+        }
+    }
+
+    override fun IrBuilderWithScope.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression {
+        val nameProperty = parcelType.getClass()!!.getPropertyGetter("name")!!
+        return with(stringSerializer) {
+            writeParcel(parcel, irCall(nameProperty).apply {
+                dispatchReceiver = value
+            })
+        }
+    }
+}
+
+class NoParameterClassSerializer(override val parcelType: IrType) : IrParcelSerializer {
+    override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression {
+        val defaultConstructor = parcelType.getClass()!!.primaryConstructor!!
+        return irCall(defaultConstructor)
+    }
+
+    override fun IrBuilderWithScope.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression {
+        return irNull() // TODO: Don't generate an expression here...
+    }
 }
