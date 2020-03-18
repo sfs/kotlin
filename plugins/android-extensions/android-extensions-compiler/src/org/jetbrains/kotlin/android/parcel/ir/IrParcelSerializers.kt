@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
+import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.IrValueDeclaration
@@ -189,4 +190,64 @@ class GenericSerializer(override val parcelType: IrType, val symbols: AndroidSym
             dispatchReceiver = irGet(parcel)
             putValueArgument(0, value)
         }
+}
+
+class ArraySerializer(override val parcelType: IrType, val elementSerializer: IrParcelSerializer, val intSerializer: IrParcelSerializer, val context: CommonBackendContext) : IrParcelSerializer {
+    override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression {
+        return irBlock {
+            val arraySize = irTemporary(with(intSerializer) { readParcel(parcel) })
+            val arrayTemporary = irTemporary(irCall(this@ArraySerializer.context.ir.symbols.arrayOfNulls, parcelType).apply {
+                putTypeArgument(0, elementSerializer.parcelType)
+                putValueArgument(0, irGet(arraySize))
+            })
+            val indexTemporary = irTemporaryVar(irInt(0))
+            +irWhile().apply {
+                condition = irNotEquals(irGet(indexTemporary), irGet(arraySize))
+                body = irBlock {
+                    val setter = context.irBuiltIns.arrayClass.getSimpleFunction("set")!!
+                    +irCall(setter).apply {
+                        dispatchReceiver = irGet(arrayTemporary)
+                        putValueArgument(0, irGet(indexTemporary))
+                        putValueArgument(1, with(elementSerializer) { readParcel(parcel) })
+                    }
+
+                    val inc = context.irBuiltIns.intClass.getSimpleFunction("inc")!!
+                    +irSetVar(indexTemporary.symbol, irCall(inc).apply {
+                        dispatchReceiver = irGet(indexTemporary)
+                    })
+                }
+            }
+            +irGet(arrayTemporary)
+        }
+    }
+
+    override fun IrBuilderWithScope.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression {
+        val arraySize = context.irBuiltIns.arrayClass.getPropertyGetter("size")!!
+        return irBlock {
+            val arrayTemporary = irTemporary(value)
+            val sizeTemporary = irTemporary(irCall(arraySize).apply {
+                dispatchReceiver = irGet(arrayTemporary)
+            })
+
+            with(intSerializer) { +writeParcel(parcel, irGet(sizeTemporary)) }
+
+            val indexTemporary = irTemporaryVar(irInt(0))
+            +irWhile().apply {
+                condition = irNotEquals(irGet(indexTemporary), irGet(sizeTemporary))
+                body = irBlock {
+                    val getter = context.irBuiltIns.arrayClass.getSimpleFunction("get")!!
+                    val element = irCall(getter).apply {
+                        dispatchReceiver = irGet(arrayTemporary)
+                        putValueArgument(0, irGet(indexTemporary))
+                    }
+                    with(elementSerializer) { +writeParcel(parcel, element) }
+
+                    val inc = context.irBuiltIns.intClass.getSimpleFunction("inc")!!
+                    +irSetVar(indexTemporary.symbol, irCall(inc).apply {
+                        dispatchReceiver = irGet(indexTemporary)
+                    })
+                }
+            }
+        }
+    }
 }

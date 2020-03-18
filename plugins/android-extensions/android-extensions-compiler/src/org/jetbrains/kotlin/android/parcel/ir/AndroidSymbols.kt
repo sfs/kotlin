@@ -206,6 +206,14 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
     val parcelWriteIInterface: IrSimpleFunctionSymbol =
         parcelUnary("writeStrongInterface", androidOsIInterface.defaultType)
 
+    private val javaIoFileDescriptor = createClass(FqName("java.io.FileDescriptor"))
+
+    val parcelReadFileDescriptor: IrSimpleFunctionSymbol =
+        parcelClass.owner.addFunction("readRawFileDescriptor", javaIoFileDescriptor.defaultType).symbol
+
+    val parcelWriteFileDescriptor: IrSimpleFunctionSymbol =
+        parcelUnary("writeRawFileDescriptor", javaIoFileDescriptor.defaultType)
+
     private val javaIoSerializable = createClass(FqName("java.io.Serializable"))
 
     val parcelReadSerializable: IrSimpleFunctionSymbol =

@@ -84,6 +84,7 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
     private val iInterfaceSerializer = PrimitiveParcelSerializer(symbols.parcelReadIInterface, symbols.parcelWriteIInterface)
     private val iBinderArraySerializer = PrimitiveParcelSerializer(symbols.parcelReadIBinderArray, symbols.parcelWriteIBinderArray)
 
+    private val fileDescriptorSerializer = PrimitiveParcelSerializer(symbols.parcelReadFileDescriptor, symbols.parcelWriteFileDescriptor)
     private val serializableSerializer = PrimitiveParcelSerializer(symbols.parcelReadSerializable, symbols.parcelWriteSerializable)
 
     private val serializerInfos = listOf<Info>(
@@ -108,6 +109,7 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
         Info("java.lang.Double", doubleSerializer),
 
         // FIXME: Only use this if we don't have a custom parceler for the element type
+        // FIXME: What about ShortArrays?
         Info("kotlin.IntArray", intArraySerializer),
         Info("kotlin.BooleanArray", booleanArraySerializer),
         Info("kotlin.ByteArray", byteArraySerializer),
@@ -118,6 +120,8 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
 
         Info("kotlin.CharSequence", charSequenceSerializer),
         Info("java.lang.CharSequence", charSequenceSerializer),
+
+        Info("java.io.FileDescriptor", fileDescriptorSerializer, nullable = false),
 
         // Android library types
 
@@ -210,6 +214,9 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
                 val elementFqName = elementType.erasedUpperBound.fqNameWhenAvailable
                 if (elementFqName?.asString() == "android.os.IBinder") {
                     return iBinderArraySerializer
+                } else {
+                    val elementSerializer = get(elementType)
+                    return ArraySerializer(irType, elementSerializer, intSerializer, context)
                 }
             }
         }
