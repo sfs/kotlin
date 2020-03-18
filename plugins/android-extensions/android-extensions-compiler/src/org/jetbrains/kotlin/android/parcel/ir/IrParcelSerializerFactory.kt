@@ -212,13 +212,17 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
                 return stringArraySerializer
             } else {
                 val elementFqName = elementType.erasedUpperBound.fqNameWhenAvailable
-                if (elementFqName?.asString() == "android.os.IBinder") {
-                    return iBinderArraySerializer
+                return if (elementFqName?.asString() == "android.os.IBinder") {
+                    iBinderArraySerializer
                 } else {
                     val elementSerializer = get(elementType)
-                    return ArraySerializer(irType, elementSerializer, intSerializer, context)
+                    ArraySerializer(/*TODO*/irType, elementSerializer, intSerializer, context)
                 }
             }
+        } else if (classifier.name.asString() == "SparseArray" && classifier.fqNameWhenAvailable?.parent()?.asString() == "android.util") {
+            val elementType = (irType as IrSimpleType).arguments.single().upperBound
+            val elementSerializer = get(elementType)
+            return SparseArraySerializer(/*TODO*/irType, elementSerializer, intSerializer, symbols)
         }
 
         if (classifier.isSubclassOfFqName("java.io.Serializable")) {

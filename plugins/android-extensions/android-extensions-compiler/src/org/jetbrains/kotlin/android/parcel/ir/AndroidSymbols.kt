@@ -16,10 +16,7 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
-import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrExternalPackageFragmentSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.name.FqName
@@ -69,6 +66,34 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
 
     private val androidOsBundle: IrClassSymbol = createClass(FqName("android.os.Bundle"))
     private val sparseBooleanArray: IrClassSymbol = createClass(FqName("android.util.SparseBooleanArray"))
+
+    val sparseArray: IrClassSymbol = createClass(FqName("android.util.SparseArray")) { irClass ->
+        irClass.addTypeParameter("E", context.irBuiltIns.anyNType)
+    }
+
+    val sparseArrayConstructor: IrConstructorSymbol =
+        sparseArray.owner.addConstructor().apply {
+            addValueParameter("initialCapacity", context.irBuiltIns.intType)
+        }.symbol
+
+    val sparseArrayPut: IrSimpleFunctionSymbol =
+        sparseArray.owner.addFunction("put", context.irBuiltIns.unitType).apply {
+            addValueParameter("key", context.irBuiltIns.intType)
+            addValueParameter("value", sparseArray.owner.typeParameters.single().defaultType)
+        }.symbol
+
+    val sparseArraySize: IrSimpleFunctionSymbol =
+        sparseArray.owner.addFunction("size", context.irBuiltIns.intType).symbol
+
+    val sparseArrayKeyAt: IrSimpleFunctionSymbol =
+        sparseArray.owner.addFunction("keyAt", context.irBuiltIns.intType).apply {
+            addValueParameter("index", context.irBuiltIns.intType)
+        }.symbol
+
+    val sparseArrayValueAt: IrSimpleFunctionSymbol =
+        sparseArray.owner.addFunction("valueAt", sparseArray.owner.typeParameters.single().defaultType).apply {
+            addValueParameter("index", context.irBuiltIns.intType)
+        }.symbol
 
     val parcelClass: IrClassSymbol = createClass(FqName("android.os.Parcel"))
 
