@@ -5,15 +5,14 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
+import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.IrValueDeclaration
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.classOrNull
-import org.jetbrains.kotlin.ir.types.getClass
-import org.jetbrains.kotlin.ir.types.isBoolean
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.getPropertyGetter
 import org.jetbrains.kotlin.ir.util.getSimpleFunction
@@ -160,5 +159,34 @@ class CharSequenceSerializer(override val parcelType: IrType, private val symbol
             putValueArgument(0, value)
             putValueArgument(1, irGet(parcel))
             putValueArgument(2, irInt(0))
+        }
+}
+
+class GenericSerializer(override val parcelType: IrType, val symbols: AndroidSymbols) : IrParcelSerializer {
+    private fun IrBuilderWithScope.kClassReference(classType: IrType) =
+        IrClassReferenceImpl(
+            startOffset, endOffset, context.irBuiltIns.kClassClass.starProjectedType, context.irBuiltIns.kClassClass, classType
+        )
+
+    private fun IrBuilderWithScope.kClassToJavaClass(kClassReference: IrExpression) =
+        irGet(symbols.javaLangClass.starProjectedType, null, symbols.kClassJava.owner.getter!!.symbol).apply {
+            extensionReceiver = kClassReference
+        }
+
+    private fun IrBuilderWithScope.javaClassReference(classType: IrType) =
+        kClassToJavaClass(kClassReference(classType))
+
+    override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression =
+        irCall(symbols.parcelReadValue).apply {
+            dispatchReceiver = irGet(parcel)
+            putValueArgument(0, irCall(symbols.classGetClassLoader).apply {
+                dispatchReceiver = javaClassReference(parcelType)
+            })
+        }
+
+    override fun IrBuilderWithScope.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression =
+        irCall(symbols.parcelWriteValue).apply {
+            dispatchReceiver = irGet(parcel)
+            putValueArgument(0, value)
         }
 }

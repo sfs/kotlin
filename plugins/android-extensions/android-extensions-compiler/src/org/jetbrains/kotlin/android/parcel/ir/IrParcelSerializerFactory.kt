@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.android.parcel.ir
 
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
+import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
@@ -83,6 +84,8 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
     private val iInterfaceSerializer = PrimitiveParcelSerializer(symbols.parcelReadIInterface, symbols.parcelWriteIInterface)
     private val iBinderArraySerializer = PrimitiveParcelSerializer(symbols.parcelReadIBinderArray, symbols.parcelWriteIBinderArray)
 
+    private val serializableSerializer = PrimitiveParcelSerializer(symbols.parcelReadSerializable, symbols.parcelWriteSerializable)
+
     private val serializerInfos = listOf<Info>(
         Info("kotlin.String", stringSerializer),
         Info("kotlin.Byte", byteSerializer, false),
@@ -142,22 +145,6 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
                 NullAwareParcelSerializer(info.serializer.parcelType.makeNullable(), info.serializer, symbols, builtIns))
         }
     }
-
-    val IrTypeParameter.erasedUpperBound: IrClass
-        get() {
-            for (type in superTypes) {
-                val irClass = type.classOrNull?.owner ?: continue
-                if (!irClass.isInterface && !irClass.isAnnotationClass) return irClass
-            }
-            return superTypes.first().erasedUpperBound
-        }
-
-    val IrType.erasedUpperBound: IrClass
-        get() = when (val classifier = classifierOrNull) {
-            is IrClassSymbol -> classifier.owner
-            is IrTypeParameterSymbol -> classifier.owner.erasedUpperBound
-            else -> throw IllegalStateException()
-        }
 
     val IrTypeArgument.upperBound: IrType
         get() = when (this) {
@@ -227,7 +214,11 @@ class IrParcelSerializerFactory(private val context: CommonBackendContext, priva
             }
         }
 
+        if (classifier.isSubclassOfFqName("java.io.Serializable")) {
+            return serializableSerializer
+        }
 
-        error("Cannot find serializer for ${irType.render()}")
+        return GenericSerializer(irType, symbols)
+//        error("Cannot find serializer for ${irType.render()}")
     }
 }

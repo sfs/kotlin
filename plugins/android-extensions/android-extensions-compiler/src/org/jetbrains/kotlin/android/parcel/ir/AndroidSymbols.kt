@@ -18,14 +18,13 @@ import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
+import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrExternalPackageFragmentSymbolImpl
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.defaultType
-import org.jetbrains.kotlin.ir.types.makeNullable
-import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.types.Variance
 
 class AndroidSymbols(private val context: CommonBackendContext, private val moduleFragment: IrModuleFragment) {
     private fun createPackage(fqName: FqName): IrPackageFragment =
@@ -41,6 +40,9 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
     private val androidOsPackage = createPackage(FqName("android.os"))
     private val androidTextPackage = createPackage(FqName("android.text"))
     private val androidUtilPackage = createPackage(FqName("android.util"))
+    private val javaIoPackage = createPackage(FqName("java.io"))
+    private val javaLangPackage = createPackage(FqName("java.lang"))
+    private val kotlinJvmPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm"))
 
     private inline fun createClass(
         fqName: FqName,
@@ -57,6 +59,8 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
                 "android.os" -> androidOsPackage
                 "android.text" -> androidTextPackage
                 "android.util" -> androidUtilPackage
+                "java.io" -> javaIoPackage
+                "java.lang" -> javaLangPackage
                 else -> error("Other packages are not supported yet: $fqName")
             }
             createImplicitParameterDeclarationWithWrappedDescriptor()
@@ -202,6 +206,24 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
     val parcelWriteIInterface: IrSimpleFunctionSymbol =
         parcelUnary("writeStrongInterface", androidOsIInterface.defaultType)
 
+    private val javaIoSerializable = createClass(FqName("java.io.Serializable"))
+
+    val parcelReadSerializable: IrSimpleFunctionSymbol =
+        parcelClass.owner.addFunction("readSerializable", javaIoSerializable.defaultType).symbol
+
+    val parcelWriteSerializable: IrSimpleFunctionSymbol =
+        parcelUnary("writeSerializable", javaIoSerializable.defaultType)
+
+    private val javaLangClassLoader: IrClassSymbol = createClass(FqName("java.lang.ClassLoader"))
+
+    val parcelReadValue: IrSimpleFunctionSymbol =
+        parcelClass.owner.addFunction("readValue", context.irBuiltIns.anyNType).apply {
+            addValueParameter("classLoader", javaLangClassLoader.defaultType)
+        }.symbol
+
+    val parcelWriteValue: IrSimpleFunctionSymbol =
+        parcelUnary("writeValue", context.irBuiltIns.anyNType)
+
     private val parcelableInterface: IrClassSymbol =
         createClass(FqName("android.os.Parcelable"), ClassKind.INTERFACE, Modality.ABSTRACT)
 
@@ -243,5 +265,24 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
             name = Name.identifier("CHAR_SEQUENCE_CREATOR")
             type = parcelableCreator.defaultType
             isStatic = true
+        }.symbol
+
+    val javaLangClass: IrClassSymbol =
+        createClass(FqName("java.lang.Class")) { klass ->
+            klass.addTypeParameter("T", context.irBuiltIns.anyNType, Variance.INVARIANT)
+        }
+
+    val classGetClassLoader: IrSimpleFunctionSymbol =
+        javaLangClass.owner.addFunction("getClassLoader", javaLangClassLoader.defaultType).symbol
+
+    val kClassJava: IrPropertySymbol =
+        buildProperty {
+            name = Name.identifier("java")
+        }.apply {
+            parent = kotlinJvmPackage
+            addGetter().apply {
+                addExtensionReceiver(context.irBuiltIns.kClassClass.starProjectedType)
+                returnType = javaLangClass.starProjectedType
+            }
         }.symbol
 }
