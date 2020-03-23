@@ -300,6 +300,7 @@ class AndroidSymbols(private val context: CommonBackendContext, private val modu
             isStatic = true
         }.symbol
 
+    // TODO: Use the symbols in JvmSymbols
     val javaLangClass: IrClassSymbol =
         createClass(FqName("java.lang.Class")) { klass ->
             klass.addTypeParameter("T", context.irBuiltIns.anyNType, Variance.INVARIANT)

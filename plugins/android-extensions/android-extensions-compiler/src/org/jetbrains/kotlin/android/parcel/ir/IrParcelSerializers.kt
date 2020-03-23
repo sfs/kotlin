@@ -123,24 +123,21 @@ class EnumSerializer(override val parcelType: IrType, val stringSerializer: Prim
         // TODO More precise matching for valueOf function
         val enumValueOfFunction = parcelType.classOrNull!!.getSimpleFunction("valueOf")!!
         return irCall(enumValueOfFunction).apply {
-            putValueArgument(0, with(stringSerializer) {
-                readParcel(parcel)
-            })
+            putValueArgument(0, readParcelWith(stringSerializer, parcel))
         }
     }
 
     override fun IrBuilderWithScope.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression {
         val nameProperty = parcelType.getClass()!!.getPropertyGetter("name")!!
-        return with(stringSerializer) {
-            writeParcel(parcel, irCall(nameProperty).apply {
-                dispatchReceiver = value
-            })
-        }
+        return writeParcelWith(stringSerializer, parcel, irCall(nameProperty).apply {
+            dispatchReceiver = value
+        })
     }
 }
 
 class NoParameterClassSerializer(override val parcelType: IrType) : IrParcelSerializer {
     override fun IrBuilderWithScope.readParcel(parcel: IrValueDeclaration): IrExpression {
+        // TODO: What if the class has no constructor? Do we generate a synthetic one already in psi2ir?
         val defaultConstructor = parcelType.getClass()!!.primaryConstructor!!
         return irCall(defaultConstructor)
     }
@@ -305,19 +302,15 @@ class SparseArraySerializer(
             +irWhile().apply {
                 condition = irNotEquals(irGet(indexTemporary), irGet(sizeTemporary))
                 body = irBlock {
-                    with(intSerializer) {
-                        +writeParcel(parcel, irCall(symbols.sparseArrayKeyAt).apply {
-                            dispatchReceiver = irGet(arrayTemporary)
-                            putValueArgument(0, irGet(indexTemporary))
-                        })
-                    }
+                    +writeParcelWith(intSerializer, parcel, irCall(symbols.sparseArrayKeyAt).apply {
+                        dispatchReceiver = irGet(arrayTemporary)
+                        putValueArgument(0, irGet(indexTemporary))
+                    })
 
-                    with(elementSerializer) {
-                        +writeParcel(parcel, irCall(symbols.sparseArrayValueAt).apply {
-                            dispatchReceiver = irGet(arrayTemporary)
-                            putValueArgument(0, irGet(indexTemporary))
-                        })
-                    }
+                    +writeParcelWith(elementSerializer, parcel, irCall(symbols.sparseArrayValueAt).apply {
+                        dispatchReceiver = irGet(arrayTemporary)
+                        putValueArgument(0, irGet(indexTemporary))
+                    })
 
                     val inc = context.irBuiltIns.intClass.getSimpleFunction("inc")!!
                     +irSetVar(indexTemporary.symbol, irCall(inc).apply {
