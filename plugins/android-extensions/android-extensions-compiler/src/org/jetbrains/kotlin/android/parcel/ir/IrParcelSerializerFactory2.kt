@@ -5,14 +5,16 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
+import org.jetbrains.kotlin.android.parcel.serializers.RAWVALUE_ANNOTATION_FQNAME
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.types.Variance
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: AndroidSymbols2) {
     private data class Info(val fqName: String, val serializer: IrParcelSerializer2, val nullable: Boolean? = null)
@@ -118,7 +120,6 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
         }
     }
 
-    // TODO: Move to irUtils
     private val IrTypeArgument.upperBound: IrType
         get() = when (this) {
             is IrStarProjection -> builtIns.anyNType
@@ -131,14 +132,12 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
             else -> error("Unknown type argument: ${render()}")
         }
 
-    // TODO: Move to irUtils
-    private fun IrClass.isSubclassOfFqName(fqName: String): Boolean =
-        fqNameWhenAvailable?.asString() == fqName || superTypes.any { it.erasedUpperBound.isSubclassOfFqName(fqName) }
-
     private fun wrapNullableSerializerIfNeeded(irType: IrType, serializer: IrParcelSerializer2) =
         if (irType.isNullable()) NullAwareParcelSerializer2(serializer) else serializer
 
-    fun get(irType: IrType): IrParcelSerializer2 {
+    fun get(irType: IrType, strict: Boolean = false): IrParcelSerializer2 {
+        fun strict() = strict && !irType.hasAnnotation(RAWVALUE_ANNOTATION_FQNAME)
+
         // TODO inline classes
         val classifier = irType.erasedUpperBound
 
@@ -172,21 +171,51 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
             return when (elementFqName?.asString()) {
                 "java.lang.String", "kotlin.String" -> stringArraySerializer
                 "android.os.IBinder" -> iBinderArraySerializer
-                else -> ArraySerializer2(/*TODO*/irType, elementType, get(elementType))
+                else -> ArraySerializer2(/*TODO*/irType, elementType, get(elementType, strict()))
             }
         } else if (classifier.name.asString() == "SparseIntArray" && classifier.fqNameWhenAvailable?.parent()?.asString() == "android.util") {
-            return SparseArraySerializer2(classifier.defaultType, builtIns.intType, get(builtIns.intType))
+            return SparseArraySerializer2(classifier.defaultType, builtIns.intType, get(builtIns.intType, strict()))
         } else if (classifier.name.asString() == "SparseLongArray" && classifier.fqNameWhenAvailable?.parent()?.asString() == "android.util") {
-            return SparseArraySerializer2(classifier.defaultType, builtIns.longType, get(builtIns.longType))
+            return SparseArraySerializer2(classifier.defaultType, builtIns.longType, get(builtIns.longType, strict()))
         } else if (classifier.name.asString() == "SparseArray" && classifier.fqNameWhenAvailable?.parent()?.asString() == "android.util") {
             val elementType = (irType as IrSimpleType).arguments.single().upperBound
-            return SparseArraySerializer2(/*TODO*/irType, elementType, get(elementType))
+            return SparseArraySerializer2(/*TODO*/irType, elementType, get(elementType, strict()))
         }
 
-        if (classifier.isSubclassOfFqName("java.io.Serializable")) {
+        val fqName = classifier.fqNameWhenAvailable?.asString()
+        if (fqName == "kotlin.collections.List" || fqName == "kotlin.collections.MutableList" || fqName == "java.util.List") {
+            val elementType = (irType as IrSimpleType).arguments.single().upperBound
+            // TODO: Special cases for various list types, support for all the other "lists"
+            return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, strict())))
+        }
+
+        // TODO: Maps
+
+        if (classifier.isSubclassOfFqName("android.os.Parcelable")) {
+            if (classifier.modality == Modality.FINAL) {
+                // Try to use the CREATOR field directly, if it exists.
+                // In Java classes or compiled Kotlin classes annotated with @Parcelize, we'll have a field in the class itself.
+                // With Parcelable instances which were manually implemented in Kotlin, we'll instead have an @JvmField property
+                // getter in the companion object.
+                val creatorField = classifier.fields.find { field -> field.name.asString() == "CREATOR" }
+                val creatorGetter = classifier.companionObject()?.safeAs<IrClass>()?.getPropertyGetter("CREATOR")?.takeIf {
+                    it.owner.hasAnnotation(FqName("kotlin.jvm.JvmField"))
+                }
+                // TODO: For @Parcelize classes in the same module, the creator field may not exist yet, so we'll miss them here.
+
+                if (creatorField != null || creatorGetter != null) {
+                    return wrapNullableSerializerIfNeeded(irType, EfficientParcelableSerializer(classifier, creatorField, creatorGetter))
+                }
+            }
+            return GenericParcelableSerializer(irType)
+        } else if (classifier.isSubclassOfFqName("java.io.Serializable")) {
             return serializableSerializer
         }
 
-        return GenericSerializer2(irType)
+        if (strict()) {
+            throw IllegalArgumentException("Illegal type, could not find a specific serializer for ${irType.render()}")
+        } else {
+            return GenericSerializer2(irType)
+        }
     }
 }

@@ -131,7 +131,7 @@ class ParcelableIrTransformer2(private val context: CommonBackendContext, privat
         get() = if (kind == ClassKind.CLASS) {
             NoParameterClassSerializer2(this)
         } else {
-            serializerFactory.get(defaultType)
+            serializerFactory.get(defaultType, strict = true)
         }
 
     private val IrClass.parcelableProperties: List<ParcelableProperty>
@@ -142,7 +142,7 @@ class ParcelableIrTransformer2(private val context: CommonBackendContext, privat
 
             return constructor.valueParameters.map { parameter ->
                 val property = properties.first { it.name == parameter.name }
-                ParcelableProperty(property.backingField!!, serializerFactory.get(parameter.type))
+                ParcelableProperty(property.backingField!!, serializerFactory.get(parameter.type, strict = true))
             }
         }
 

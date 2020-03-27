@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
 import org.jetbrains.kotlin.ir.builders.IrGeneratorContextBase
 import org.jetbrains.kotlin.ir.builders.Scope
+import org.jetbrains.kotlin.ir.builders.declarations.addConstructor
 import org.jetbrains.kotlin.ir.builders.declarations.addExtensionReceiver
 import org.jetbrains.kotlin.ir.builders.declarations.addField
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
@@ -33,6 +34,7 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
@@ -572,6 +574,15 @@ class AndroidSymbols2(
 
     val classGetClassLoader: IrSimpleFunctionSymbol =
         javaLangClass.owner.addFunction("getClassLoader", javaLangClassLoader.defaultType).symbol
+
+    val arrayListConstructor: IrConstructorSymbol = javaUtilArrayList.owner.addConstructor().apply {
+        addValueParameter("p_0", irBuiltIns.intType)
+    }.symbol
+
+    val arrayListAdd: IrSimpleFunctionSymbol =
+        javaUtilArrayList.owner.addFunction("add", irBuiltIns.booleanType).apply {
+            addValueParameter("p_0", irBuiltIns.anyNType)
+        }.symbol
 
     val textUtilsCharSequenceCreator: IrFieldSymbol = androidTextTextUtils.owner.addField {
         name = Name.identifier("CHAR_SEQUENCE_CREATOR")
@@ -1168,6 +1179,17 @@ class AndroidIrBuilder internal constructor(
     fun classGetClassLoader(receiver: IrExpression): IrExpression =
         irCall(androidSymbols.classGetClassLoader).apply {
             dispatchReceiver = receiver
+        }
+
+    fun arrayListConstructor(p_0: IrExpression): IrExpression =
+        irCall(androidSymbols.arrayListConstructor).apply {
+            putValueArgument(0, p_0)
+        }
+
+    fun arrayListAdd(receiver: IrExpression, p_0: IrExpression): IrExpression =
+        irCall(androidSymbols.arrayListAdd).apply {
+            dispatchReceiver = receiver
+            putValueArgument(0, p_0)
         }
 
     fun getTextUtilsCharSequenceCreator(): IrExpression =
