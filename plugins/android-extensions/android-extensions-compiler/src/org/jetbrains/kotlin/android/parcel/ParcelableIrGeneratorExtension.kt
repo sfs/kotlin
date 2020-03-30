@@ -5,14 +5,14 @@
 
 package org.jetbrains.kotlin.android.parcel
 
-import org.jetbrains.kotlin.android.parcel.ir.AndroidSymbols2
-import org.jetbrains.kotlin.android.parcel.ir.ParcelableIrTransformer2
+import org.jetbrains.kotlin.android.parcel.ir.AndroidSymbols
+import org.jetbrains.kotlin.android.parcel.ir.ParcelableIrTransformer
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.extensions.PureIrGenerationExtension
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 
 class ParcelableIrGeneratorExtension : PureIrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, context: CommonBackendContext) {
-        moduleFragment.transform(ParcelableIrTransformer2(context, AndroidSymbols2 (context, moduleFragment)), null)
+        moduleFragment.transform(ParcelableIrTransformer(context, AndroidSymbols(context, moduleFragment)), null)
     }
 }
