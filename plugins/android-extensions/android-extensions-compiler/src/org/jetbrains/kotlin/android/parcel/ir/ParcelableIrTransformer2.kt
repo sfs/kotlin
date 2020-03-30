@@ -24,7 +24,8 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
 
-class ParcelableIrTransformer2(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols2) : ParcelableExtensionBase, IrElementTransformerVoidWithContext() {
+class ParcelableIrTransformer2(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols2) :
+    ParcelableExtensionBase, IrElementTransformerVoidWithContext() {
     private val serializerFactory = IrParcelSerializerFactory2(context.irBuiltIns, androidSymbols)
 
     // TODO: The CREATOR field and writeToParcel functions have to be lazily generated so that we can call them on
@@ -55,10 +56,15 @@ class ParcelableIrTransformer2(private val context: CommonBackendContext, privat
                     irBlockBody {
                         if (parcelableProperties.isNotEmpty()) {
                             for (property in parcelableProperties) {
-                                +writeParcelWith(property.parceler, parcelParameter, irGetField(irGet(receiverParameter), property.field))
+                                +writeParcelWith(
+                                    property.parceler,
+                                    parcelParameter,
+                                    flagsParameter,
+                                    irGetField(irGet(receiverParameter), property.field)
+                                )
                             }
                         } else {
-                            +writeParcelWith(declaration.classParceler, parcelParameter, irGet(receiverParameter))
+                            +writeParcelWith(declaration.classParceler, parcelParameter, flagsParameter, irGet(receiverParameter))
                         }
                     }
                 }
