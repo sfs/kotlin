@@ -120,6 +120,19 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
         }
     }
 
+    val listFqNames = setOf(
+        "kotlin.collections.MutableList", "kotlin.collections.List", "java.util.List",
+        "kotlin.collections.ArrayList", "java.util.ArrayList",
+        // FIXME: Is the support for ArrayDeque missing in the old BE?
+        "kotlin.collections.ArrayDeque", "java.util.ArrayDeque",
+        "kotlin.collections.MutableSet", "kotlin.collections.Set", "java.util.Set",
+        "kotlin.collections.HashSet", "java.util.HashSet",
+        "kotlin.collections.LinkedHashSet", "java.util.LinkedHashSet",
+        "java.util.NavigableSet", "java.util.SortedSet"
+        // TODO: More java collections?
+        // TODO: Add tests for all of these types, not just some common ones...
+    )
+
     private val IrTypeArgument.upperBound: IrType
         get() = when (this) {
             is IrStarProjection -> builtIns.anyNType
@@ -182,10 +195,9 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
             return SparseArraySerializer2(/*TODO*/irType, elementType, get(elementType, strict()))
         }
 
-        val fqName = classifier.fqNameWhenAvailable?.asString()
-        if (fqName == "kotlin.collections.List" || fqName == "kotlin.collections.MutableList" || fqName == "java.util.List") {
+        if (classifier.fqNameWhenAvailable?.asString() in listFqNames) {
             val elementType = (irType as IrSimpleType).arguments.single().upperBound
-            // TODO: Special cases for various list types, support for all the other "lists"
+            // TODO: Special cases for various list types
             return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, strict())))
         }
 

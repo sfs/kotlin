@@ -126,11 +126,20 @@ class AndroidSymbols2(
     val javaUtilHashMap: IrClassSymbol =
         createClass(javaUtil, "HashMap", ClassKind.CLASS, Modality.OPEN)
 
+    val javaUtilLinkedHashSet: IrClassSymbol =
+        createClass(javaUtil, "LinkedHashSet", ClassKind.CLASS, Modality.OPEN)
+
+    val javaUtilLinkedList: IrClassSymbol =
+        createClass(javaUtil, "LinkedList", ClassKind.CLASS, Modality.OPEN)
+
     val javaUtilList: IrClassSymbol =
         createClass(javaUtil, "List", ClassKind.INTERFACE, Modality.ABSTRACT)
 
     val javaUtilMap: IrClassSymbol =
         createClass(javaUtil, "Map", ClassKind.INTERFACE, Modality.ABSTRACT)
+
+    val javaUtilTreeSet: IrClassSymbol =
+        createClass(javaUtil, "TreeSet", ClassKind.CLASS, Modality.OPEN)
 
     val androidOsParcelableCreator: IrClassSymbol = buildClass {
         name = Name.identifier("Creator")
@@ -581,6 +590,31 @@ class AndroidSymbols2(
 
     val arrayListAdd: IrSimpleFunctionSymbol =
         javaUtilArrayList.owner.addFunction("add", irBuiltIns.booleanType).apply {
+            addValueParameter("p_0", irBuiltIns.anyNType)
+        }.symbol
+
+    val linkedHashSetConstructor: IrConstructorSymbol =
+        javaUtilLinkedHashSet.owner.addConstructor().apply {
+            addValueParameter("p_0", irBuiltIns.intType)
+        }.symbol
+
+    val linkedHashSetAdd: IrSimpleFunctionSymbol =
+        javaUtilLinkedHashSet.owner.addFunction("add", irBuiltIns.booleanType).apply {
+            addValueParameter("p_0", irBuiltIns.anyNType)
+        }.symbol
+
+    val linkedListConstructor: IrConstructorSymbol =
+        javaUtilLinkedList.owner.addConstructor().symbol
+
+    val linkedListAdd: IrSimpleFunctionSymbol =
+        javaUtilLinkedList.owner.addFunction("add", irBuiltIns.booleanType).apply {
+            addValueParameter("p_0", irBuiltIns.anyNType)
+        }.symbol
+
+    val treeSetConstructor: IrConstructorSymbol = javaUtilTreeSet.owner.addConstructor().symbol
+
+    val treeSetAdd: IrSimpleFunctionSymbol =
+        javaUtilTreeSet.owner.addFunction("add", irBuiltIns.booleanType).apply {
             addValueParameter("p_0", irBuiltIns.anyNType)
         }.symbol
 
@@ -1188,6 +1222,35 @@ class AndroidIrBuilder internal constructor(
 
     fun arrayListAdd(receiver: IrExpression, p_0: IrExpression): IrExpression =
         irCall(androidSymbols.arrayListAdd).apply {
+            dispatchReceiver = receiver
+            putValueArgument(0, p_0)
+        }
+
+    fun linkedHashSetConstructor(p_0: IrExpression): IrExpression =
+        irCall(androidSymbols.linkedHashSetConstructor).apply {
+            putValueArgument(0, p_0)
+        }
+
+    fun linkedHashSetAdd(receiver: IrExpression, p_0: IrExpression): IrExpression =
+        irCall(androidSymbols.linkedHashSetAdd).apply {
+            dispatchReceiver = receiver
+            putValueArgument(0, p_0)
+        }
+
+    fun linkedListConstructor(): IrExpression = irCall(androidSymbols.linkedListConstructor).apply {
+    }
+
+    fun linkedListAdd(receiver: IrExpression, p_0: IrExpression): IrExpression =
+        irCall(androidSymbols.linkedListAdd).apply {
+            dispatchReceiver = receiver
+            putValueArgument(0, p_0)
+        }
+
+    fun treeSetConstructor(): IrExpression = irCall(androidSymbols.treeSetConstructor).apply {
+    }
+
+    fun treeSetAdd(receiver: IrExpression, p_0: IrExpression): IrExpression =
+        irCall(androidSymbols.treeSetAdd).apply {
             dispatchReceiver = receiver
             putValueArgument(0, p_0)
         }

@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
+import org.jetbrains.kotlin.backend.jvm.codegen.isJvmInterface
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.backend.jvm.ir.isBoxedArray
 import org.jetbrains.kotlin.ir.builders.*
@@ -13,7 +14,7 @@ import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueDeclaration
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
@@ -361,13 +362,48 @@ class ListParceler(val irClass: IrClass, val elementSerializer: IrParcelSerializ
         }
     }
 
+    private fun listSymbols(symbols: AndroidSymbols2): Pair<IrConstructorSymbol, IrSimpleFunctionSymbol> {
+        // If the IrClass refers to a concrete type, try to find a constructor with capactiy or fall back
+        // the the default constructor if none exist.
+        if (!irClass.isJvmInterface) {
+            val constructor = irClass.constructors.find { constructor ->
+                constructor.valueParameters.size == 1 && constructor.valueParameters.single().type.isInt()
+            } ?: irClass.constructors.find { constructor ->
+                constructor.valueParameters.isEmpty()
+            }!!
+
+            val add = irClass.functions.first { function ->
+                function.name.asString() == "add" && function.valueParameters.size == 1
+            }
+
+            return constructor.symbol to add.symbol
+        }
+
+        return when (irClass.fqNameWhenAvailable?.asString()) {
+            "kotlin.collections.MutableList", "kotlin.collections.List", "java.util.List" ->
+                symbols.arrayListConstructor to symbols.arrayListAdd
+            "kotlin.collections.MutableSet", "kotlin.collections.Set", "java.util.Set" ->
+                symbols.linkedHashSetConstructor to symbols.linkedHashSetAdd
+            "java.util.NavigableSet", "java.util.SortedSet" ->
+                symbols.treeSetConstructor to symbols.treeSetAdd
+            else -> error("Unknown list interface type: ${irClass.render()}")
+        }
+    }
+
     override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression =
         irBlock {
+            val (constructorSymbol, addSymbol) = listSymbols(androidSymbols)
             val sizeTemporary = irTemporary(parcelReadInt(irGet(parcel)))
-            val arrayList = irTemporary(arrayListConstructor(irGet(sizeTemporary)))
+            val list = irTemporary(irCall(constructorSymbol).apply {
+                if (constructorSymbol.owner.valueParameters.isNotEmpty())
+                    putValueArgument(0, irGet(sizeTemporary))
+            })
             forUntil(irGet(sizeTemporary)) {
-                +arrayListAdd(irGet(arrayList), readParcelWith(elementSerializer, parcel))
+                +irCall(addSymbol).apply {
+                    dispatchReceiver = irGet(list)
+                    putValueArgument(0, readParcelWith(elementSerializer, parcel))
+                }
             }
-            +irGet(arrayList)
+            +irGet(list)
         }
 }
