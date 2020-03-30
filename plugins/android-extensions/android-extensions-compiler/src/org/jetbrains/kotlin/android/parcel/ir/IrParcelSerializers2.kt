@@ -43,8 +43,7 @@ class SimpleParcelSerializer(val reader: IrSimpleFunctionSymbol, val writer: IrS
         }
 }
 
-class WrappedParcelSerializer(val parcelType: IrType, val serializer: IrParcelSerializer2) :
-    IrParcelSerializer2 by serializer {
+class WrappedParcelSerializer(val parcelType: IrType, val serializer: IrParcelSerializer2) : IrParcelSerializer2 {
     override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression {
         val deserializedPrimitive = readParcelWith(serializer, parcel)
         return if (parcelType.isBoolean()) {
@@ -63,6 +62,12 @@ class WrappedParcelSerializer(val parcelType: IrType, val serializer: IrParcelSe
             }
         }
     }
+
+    private fun IrBuilderWithScope.irCastIfNeeded(expression: IrExpression, irType: IrType): IrExpression =
+        if (expression.type == irType) expression else irAs(expression, irType)
+
+    override fun AndroidIrBuilder.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression =
+        writeParcelWith(serializer, parcel, irCastIfNeeded(value, parcelType))
 }
 
 class NullAwareParcelSerializer2(private val serializer: IrParcelSerializer2) : IrParcelSerializer2 {
@@ -405,5 +410,96 @@ class ListParceler(val irClass: IrClass, val elementSerializer: IrParcelSerializ
                 }
             }
             +irGet(list)
+        }
+}
+
+class MapParceler(val irClass: IrClass, val keySerializer: IrParcelSerializer2, val valueSerializer: IrParcelSerializer2) : IrParcelSerializer2 {
+    private fun IrClass.getNullaryFunction(name: String): IrSimpleFunction =
+        functions.first { function ->
+            function.name.asString() == name && function.dispatchReceiverParameter != null
+                    && function.extensionReceiverParameter == null && function.valueParameters.isEmpty()
+        }
+
+    override fun AndroidIrBuilder.writeParcel(parcel: IrValueDeclaration, value: IrExpression): IrExpression {
+        val sizeFunction = irClass.getPropertyGetter("size")!!
+        val entriesFunction = irClass.getPropertyGetter("entries")!!
+        val entrySetClass = entriesFunction.owner.returnType.erasedUpperBound
+        val iteratorFunction = entrySetClass.getNullaryFunction("iterator")
+        val iteratorClass = iteratorFunction.returnType.erasedUpperBound
+        val iteratorHasNext = iteratorClass.getNullaryFunction("hasNext")
+        val iteratorNext = iteratorClass.getNullaryFunction("next")
+        val elementClass = (entriesFunction.owner.returnType as IrSimpleType).arguments.single().upperBound(context.irBuiltIns).erasedUpperBound
+        val elementKey = elementClass.getPropertyGetter("key")!!
+        val elementValue = elementClass.getPropertyGetter("value")!!
+
+        return irBlock {
+            val list = irTemporary(value)
+            +parcelWriteInt(irGet(parcel), irCall(sizeFunction).apply {
+                dispatchReceiver = irGet(list)
+            })
+            val iterator = irTemporary(irCall(iteratorFunction).apply {
+                dispatchReceiver = irCall(entriesFunction).apply {
+                    dispatchReceiver = irGet(list)
+                }
+            })
+            +irWhile().apply {
+                condition = irCall(iteratorHasNext).apply { dispatchReceiver = irGet(iterator) }
+                body = irBlock {
+                    val element = irTemporary(irCall(iteratorNext).apply {
+                        dispatchReceiver = irGet(iterator)
+                    })
+                    +writeParcelWith(keySerializer, parcel, irCall(elementKey).apply {
+                        dispatchReceiver = irGet(element)
+                    })
+                    +writeParcelWith(valueSerializer, parcel, irCall(elementValue).apply {
+                        dispatchReceiver = irGet(element)
+                    })
+                }
+            }
+        }
+    }
+
+    private fun mapSymbols(symbols: AndroidSymbols2): Pair<IrConstructorSymbol, IrSimpleFunctionSymbol> {
+        // If the IrClass refers to a concrete type, try to find a constructor with capactiy or fall back
+        // the the default constructor if none exist.
+        if (!irClass.isJvmInterface) {
+            val constructor = irClass.constructors.find { constructor ->
+                constructor.valueParameters.size == 1 && constructor.valueParameters.single().type.isInt()
+            } ?: irClass.constructors.find { constructor ->
+                constructor.valueParameters.isEmpty()
+            }!!
+
+            val put = irClass.functions.first { function ->
+                function.name.asString() == "put" && function.valueParameters.size == 2
+            }
+
+            return constructor.symbol to put.symbol
+        }
+
+        return when (irClass.fqNameWhenAvailable?.asString()) {
+            "kotlin.collections.MutableMap", "kotlin.collections.Map", "java.util.Map" ->
+                symbols.linkedHashMapConstructor to symbols.linkedHashMapPut
+            "java.util.SortedMap", "java.util.NavigableMap" ->
+                symbols.treeMapConstructor to symbols.treeMapPut
+            else -> error("Unknown map interface type: ${irClass.render()}")
+        }
+    }
+
+    override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression =
+        irBlock {
+            val (constructorSymbol, putSymbol) = mapSymbols(androidSymbols)
+            val sizeTemporary = irTemporary(parcelReadInt(irGet(parcel)))
+            val map = irTemporary(irCall(constructorSymbol).apply {
+                if (constructorSymbol.owner.valueParameters.isNotEmpty())
+                    putValueArgument(0, irGet(sizeTemporary))
+            })
+            forUntil(irGet(sizeTemporary)) {
+                +irCall(putSymbol).apply {
+                    dispatchReceiver = irGet(map)
+                    putValueArgument(0, readParcelWith(keySerializer, parcel))
+                    putValueArgument(1, readParcelWith(valueSerializer, parcel))
+                }
+            }
+            +irGet(map)
         }
 }

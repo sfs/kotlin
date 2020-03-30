@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: AndroidSymbols2) {
@@ -133,17 +132,13 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
         // TODO: Add tests for all of these types, not just some common ones...
     )
 
-    private val IrTypeArgument.upperBound: IrType
-        get() = when (this) {
-            is IrStarProjection -> builtIns.anyNType
-            is IrTypeProjection -> {
-                if (variance == Variance.OUT_VARIANCE || variance == Variance.INVARIANT)
-                    type
-                else
-                    builtIns.anyNType
-            }
-            else -> error("Unknown type argument: ${render()}")
-        }
+    val mapFqNames = setOf(
+        "kotlin.collections.MutableMap", "kotlin.collections.Map", "java.util.Map",
+        "kotlin.collections.HashMap", "java.util.HashMap",
+        "kotlin.collections.LinkedHashMap", "java.util.LinkedHashMap",
+        "java.util.SortedMap", "java.util.NavigableMap", "java.util.TreeMap",
+        "java.util.concurrent.ConcurrentHashMap"
+    )
 
     private fun wrapNullableSerializerIfNeeded(irType: IrType, serializer: IrParcelSerializer2) =
         if (irType.isNullable()) NullAwareParcelSerializer2(serializer) else serializer
@@ -179,7 +174,7 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
 
         // TODO custom serializers for element types, primitive arrays with custom serializers
         if (irType.isArray() || irType.isNullableArray()) {
-            val elementType = (irType as IrSimpleType).arguments.single().upperBound
+            val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
             val elementFqName = elementType.erasedUpperBound.fqNameWhenAvailable
             return when (elementFqName?.asString()) {
                 "java.lang.String", "kotlin.String" -> stringArraySerializer
@@ -191,17 +186,20 @@ class IrParcelSerializerFactory2(private val builtIns: IrBuiltIns, symbols: Andr
         } else if (classifier.name.asString() == "SparseLongArray" && classifier.fqNameWhenAvailable?.parent()?.asString() == "android.util") {
             return SparseArraySerializer2(classifier.defaultType, builtIns.longType, get(builtIns.longType, strict()))
         } else if (classifier.name.asString() == "SparseArray" && classifier.fqNameWhenAvailable?.parent()?.asString() == "android.util") {
-            val elementType = (irType as IrSimpleType).arguments.single().upperBound
+            val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
             return SparseArraySerializer2(/*TODO*/irType, elementType, get(elementType, strict()))
         }
 
         if (classifier.fqNameWhenAvailable?.asString() in listFqNames) {
-            val elementType = (irType as IrSimpleType).arguments.single().upperBound
+            val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
             // TODO: Special cases for various list types
             return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, strict())))
+        } else if (classifier.fqNameWhenAvailable?.asString() in mapFqNames) {
+            // FIXME: Are there special cases for map types in Parcel?
+            val keyType = (irType as IrSimpleType).arguments[0].upperBound(builtIns)
+            val valueType = irType.arguments[1].upperBound(builtIns)
+            return wrapNullableSerializerIfNeeded(irType, MapParceler(classifier, get(keyType, strict()), get(valueType, strict())))
         }
-
-        // TODO: Maps
 
         if (classifier.isSubclassOfFqName("android.os.Parcelable")) {
             if (classifier.modality == Modality.FINAL) {

@@ -126,6 +126,9 @@ class AndroidSymbols2(
     val javaUtilHashMap: IrClassSymbol =
         createClass(javaUtil, "HashMap", ClassKind.CLASS, Modality.OPEN)
 
+    val javaUtilLinkedHashMap: IrClassSymbol =
+        createClass(javaUtil, "LinkedHashMap", ClassKind.CLASS, Modality.OPEN)
+
     val javaUtilLinkedHashSet: IrClassSymbol =
         createClass(javaUtil, "LinkedHashSet", ClassKind.CLASS, Modality.OPEN)
 
@@ -137,6 +140,9 @@ class AndroidSymbols2(
 
     val javaUtilMap: IrClassSymbol =
         createClass(javaUtil, "Map", ClassKind.INTERFACE, Modality.ABSTRACT)
+
+    val javaUtilTreeMap: IrClassSymbol =
+        createClass(javaUtil, "TreeMap", ClassKind.CLASS, Modality.OPEN)
 
     val javaUtilTreeSet: IrClassSymbol =
         createClass(javaUtil, "TreeSet", ClassKind.CLASS, Modality.OPEN)
@@ -593,6 +599,17 @@ class AndroidSymbols2(
             addValueParameter("p_0", irBuiltIns.anyNType)
         }.symbol
 
+    val linkedHashMapConstructor: IrConstructorSymbol =
+        javaUtilLinkedHashMap.owner.addConstructor().apply {
+            addValueParameter("p_0", irBuiltIns.intType)
+        }.symbol
+
+    val linkedHashMapPut: IrSimpleFunctionSymbol =
+        javaUtilLinkedHashMap.owner.addFunction("put", irBuiltIns.anyNType).apply {
+            addValueParameter("p_0", irBuiltIns.anyNType)
+            addValueParameter("p_1", irBuiltIns.anyNType)
+        }.symbol
+
     val linkedHashSetConstructor: IrConstructorSymbol =
         javaUtilLinkedHashSet.owner.addConstructor().apply {
             addValueParameter("p_0", irBuiltIns.intType)
@@ -609,6 +626,14 @@ class AndroidSymbols2(
     val linkedListAdd: IrSimpleFunctionSymbol =
         javaUtilLinkedList.owner.addFunction("add", irBuiltIns.booleanType).apply {
             addValueParameter("p_0", irBuiltIns.anyNType)
+        }.symbol
+
+    val treeMapConstructor: IrConstructorSymbol = javaUtilTreeMap.owner.addConstructor().symbol
+
+    val treeMapPut: IrSimpleFunctionSymbol =
+        javaUtilTreeMap.owner.addFunction("put", irBuiltIns.anyNType).apply {
+            addValueParameter("p_0", irBuiltIns.anyNType)
+            addValueParameter("p_1", irBuiltIns.anyNType)
         }.symbol
 
     val treeSetConstructor: IrConstructorSymbol = javaUtilTreeSet.owner.addConstructor().symbol
@@ -1226,6 +1251,21 @@ class AndroidIrBuilder internal constructor(
             putValueArgument(0, p_0)
         }
 
+    fun linkedHashMapConstructor(p_0: IrExpression): IrExpression =
+        irCall(androidSymbols.linkedHashMapConstructor).apply {
+            putValueArgument(0, p_0)
+        }
+
+    fun linkedHashMapPut(
+        receiver: IrExpression,
+        p_0: IrExpression,
+        p_1: IrExpression
+    ): IrExpression = irCall(androidSymbols.linkedHashMapPut).apply {
+        dispatchReceiver = receiver
+        putValueArgument(0, p_0)
+        putValueArgument(1, p_1)
+    }
+
     fun linkedHashSetConstructor(p_0: IrExpression): IrExpression =
         irCall(androidSymbols.linkedHashSetConstructor).apply {
             putValueArgument(0, p_0)
@@ -1245,6 +1285,19 @@ class AndroidIrBuilder internal constructor(
             dispatchReceiver = receiver
             putValueArgument(0, p_0)
         }
+
+    fun treeMapConstructor(): IrExpression = irCall(androidSymbols.treeMapConstructor).apply {
+    }
+
+    fun treeMapPut(
+        receiver: IrExpression,
+        p_0: IrExpression,
+        p_1: IrExpression
+    ): IrExpression = irCall(androidSymbols.treeMapPut).apply {
+        dispatchReceiver = receiver
+        putValueArgument(0, p_0)
+        putValueArgument(1, p_1)
+    }
 
     fun treeSetConstructor(): IrExpression = irCall(androidSymbols.treeSetConstructor).apply {
     }
