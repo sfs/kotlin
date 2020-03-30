@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclaration
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
@@ -23,7 +24,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
 
-class ParcelableIrTransformer2(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols2) : IrElementTransformerVoidWithContext() {
+class ParcelableIrTransformer2(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols2) : ParcelableExtensionBase, IrElementTransformerVoidWithContext() {
     private val serializerFactory = IrParcelSerializerFactory2(context.irBuiltIns, androidSymbols)
 
     // TODO: The CREATOR field and writeToParcel functions have to be lazily generated so that we can call them on
@@ -35,26 +36,30 @@ class ParcelableIrTransformer2(private val context: CommonBackendContext, privat
 
         val parcelableProperties = declaration.parcelableProperties
 
-        declaration.addFunction("describeContents", context.irBuiltIns.intType).apply {
-            val flags = if (parcelableProperties.any { it.field.type.containsFileDescriptors }) 1 else 0
-            body = context.createIrBuilder(symbol).run {
-                irExprBody(irInt(flags))
+        if (declaration.descriptor.hasSyntheticDescribeContents()) {
+            declaration.addFunction("describeContents", context.irBuiltIns.intType, modality = Modality.OPEN).apply {
+                val flags = if (parcelableProperties.any { it.field.type.containsFileDescriptors }) 1 else 0
+                body = context.createIrBuilder(symbol).run {
+                    irExprBody(irInt(flags))
+                }
             }
         }
 
-        declaration.addFunction("writeToParcel", context.irBuiltIns.unitType).apply {
-            val receiverParameter = dispatchReceiverParameter!!
-            val parcelParameter = addValueParameter("out", androidSymbols.androidOsParcel.defaultType)
-            val flagsParameter = addValueParameter("flags", context.irBuiltIns.intType)
+        if (declaration.descriptor.hasSyntheticWriteToParcel()) {
+            declaration.addFunction("writeToParcel", context.irBuiltIns.unitType, modality = Modality.OPEN).apply {
+                val receiverParameter = dispatchReceiverParameter!!
+                val parcelParameter = addValueParameter("out", androidSymbols.androidOsParcel.defaultType)
+                val flagsParameter = addValueParameter("flags", context.irBuiltIns.intType)
 
-            body = androidSymbols.createBuilder(symbol).run {
-                irBlockBody {
-                    if (parcelableProperties.isNotEmpty()) {
-                        for (property in parcelableProperties) {
-                            +writeParcelWith(property.parceler, parcelParameter, irGetField(irGet(receiverParameter), property.field))
+                body = androidSymbols.createBuilder(symbol).run {
+                    irBlockBody {
+                        if (parcelableProperties.isNotEmpty()) {
+                            for (property in parcelableProperties) {
+                                +writeParcelWith(property.parceler, parcelParameter, irGetField(irGet(receiverParameter), property.field))
+                            }
+                        } else {
+                            +writeParcelWith(declaration.classParceler, parcelParameter, irGet(receiverParameter))
                         }
-                    } else {
-                        +writeParcelWith(declaration.classParceler, parcelParameter, irGet(receiverParameter))
                     }
                 }
             }
@@ -62,6 +67,7 @@ class ParcelableIrTransformer2(private val context: CommonBackendContext, privat
 
         val creatorType = androidSymbols.androidOsParcelableCreator.typeWith(declaration.defaultType)
 
+        // TODO: hasCreatorField
         declaration.addField {
             name = ParcelableExtensionBase.CREATOR_NAME
             type = creatorType
