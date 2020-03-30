@@ -29,6 +29,7 @@ import org.junit.runner.RunWith
 class ParcelBoxTest : AbstractParcelBoxTest() {
     fun testSimple() = doTest("simple")
     fun testPrimitiveTypes() = doTest("primitiveTypes")
+    fun testAllPrimitiveTypes() = doTest("allPrimitiveTypes")
     fun testBoxedTypes() = doTest("boxedTypes")
     fun testNullableTypesSimple() = doTest("nullableTypesSimple")
     fun testNullableTypes() = doTest("nullableTypes")
