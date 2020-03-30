@@ -23,10 +23,12 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
         mutableMapOf()
 
     private val stringArraySerializer = SimpleParcelSerializer(symbols.parcelCreateStringArray, symbols.parcelWriteStringArray)
+    private val stringListSerializer = SimpleParcelSerializer(symbols.parcelCreateStringArrayList, symbols.parcelWriteStringList)
     // TODO Add tests for IBinder, IInterface, and IBinder arrays. The IInterface support is broken and will crash with a NoSuchMethodError.
     private val iBinderSerializer = SimpleParcelSerializer(symbols.parcelReadStrongBinder, symbols.parcelWriteStrongBinder)
     // private val iInterfaceSerializer = SimpleParcelSerializer(symbols.inter, symbols.parcelWriteIInterface)
     private val iBinderArraySerializer = SimpleParcelSerializer(symbols.parcelCreateBinderArray, symbols.parcelWriteBinderArray)
+    private val iBinderListSerializer = SimpleParcelSerializer(symbols.parcelCreateBinderArrayList, symbols.parcelWriteBinderList)
     private val serializableSerializer = SimpleParcelSerializer(symbols.parcelReadSerializable, symbols.parcelWriteSerializable)
 
     init {
@@ -106,8 +108,8 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             Info("android.os.Bundle", bundleSerializer),
             Info("android.os.PersistableBundle", persistableBundleSerializer),
             Info("android.util.SparseBooleanArray", sparseBooleanArraySerializer),
-            Info("android.util.Size", sizeSerializer),
-            Info("android.util.SizeF", sizeFSerializer)
+            Info("android.util.Size", sizeSerializer, nullable = false),
+            Info("android.util.SizeF", sizeFSerializer, nullable = false)
         )
 
         for (info in serializerInfos) {
@@ -190,12 +192,21 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             return SparseArraySerializer(/*TODO*/irType, elementType, get(elementType, strict()))
         }
 
-        if (classifier.fqNameWhenAvailable?.asString() in listFqNames) {
+        val classifierFqName = classifier.fqNameWhenAvailable?.asString()
+
+        if (classifierFqName in listFqNames) {
             val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
-            // TODO: Special cases for various list types
+            if (classifierFqName == "kotlin.collections.List" || classifierFqName == "kotlin.collections.List" || classifierFqName == "java.util.List") {
+                // TODO: Custom parcelers for element types
+                when (val elementFqName = elementType.erasedUpperBound.fqNameWhenAvailable?.asString()) {
+                    "android.os.IBinder" ->
+                        return iBinderListSerializer
+                    "kotlin.String", "java.lang.String" ->
+                        return stringListSerializer
+                }
+            }
             return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, strict())))
         } else if (classifier.fqNameWhenAvailable?.asString() in mapFqNames) {
-            // FIXME: Are there special cases for map types in Parcel?
             val keyType = (irType as IrSimpleType).arguments[0].upperBound(builtIns)
             val valueType = irType.arguments[1].upperBound(builtIns)
             return wrapNullableSerializerIfNeeded(irType, MapParceler(classifier, get(keyType, strict()), get(valueType, strict())))

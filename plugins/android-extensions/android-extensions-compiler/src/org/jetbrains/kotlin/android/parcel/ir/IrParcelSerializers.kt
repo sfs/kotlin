@@ -339,6 +339,7 @@ class SparseArraySerializer(val arrayType: IrType, val elementType: IrType, val 
         }
 }
 
+// TODO: Use code duplication with MapParceler
 class ListParceler(val irClass: IrClass, val elementSerializer: IrParcelSerializer) : IrParcelSerializer {
     private fun IrClass.getNullaryFunction(name: String): IrSimpleFunction =
         functions.first { function ->
@@ -376,9 +377,7 @@ class ListParceler(val irClass: IrClass, val elementSerializer: IrParcelSerializ
         if (!irClass.isJvmInterface) {
             val constructor = irClass.constructors.find { constructor ->
                 constructor.valueParameters.size == 1 && constructor.valueParameters.single().type.isInt()
-            } ?: irClass.constructors.find { constructor ->
-                constructor.valueParameters.isEmpty()
-            }!!
+            } ?: irClass.constructors.first { constructor -> constructor.valueParameters.isEmpty() }
 
             val add = irClass.functions.first { function ->
                 function.name.asString() == "add" && function.valueParameters.size == 1
