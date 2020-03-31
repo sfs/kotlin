@@ -18,16 +18,15 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: AndroidSymbols) {
-    fun get(irType: IrType, strict: Boolean = false): IrParcelSerializer {
+    fun get(irType: IrType, strict: Boolean = false, toplevel: Boolean = false): IrParcelSerializer {
         fun strict() = strict && !irType.hasAnnotation(RAWVALUE_ANNOTATION_FQNAME)
 
         // TODO inline classes
         val classifier = irType.erasedUpperBound
-        val classifierFqName = classifier.fqNameWhenAvailable?.asString()
 
         // TODO custom serializers
 
-        when (classifierFqName) {
+        when (val classifierFqName = classifier.fqNameWhenAvailable?.asString()) {
             "kotlin.String", "java.lang.String" ->
                 return stringSerializer
 
@@ -47,7 +46,6 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                 return wrapNullableSerializerIfNeeded(irType, floatSerializer)
             "kotlin.Double", "java.lang.Double" ->
                 return wrapNullableSerializerIfNeeded(irType, doubleSerializer)
-
 
             // FIXME: Only use this if we don't have a custom parceler for the element type
             "kotlin.IntArray" ->
@@ -83,19 +81,8 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                 return wrapNullableSerializerIfNeeded(irType, sizeSerializer)
             "android.util.SizeF" ->
                 return wrapNullableSerializerIfNeeded(irType, sizeFSerializer)
-        }
 
-        when {
-            classifier.isSubclassOfFqName("android.os.IBinder") ->
-                return iBinderSerializer
-            classifier.isObject ->
-                return ObjectSerializer(classifier)
-            classifier.isEnumClass ->
-                return wrapNullableSerializerIfNeeded(irType, EnumSerializer(classifier))
-        }
-
-        // TODO custom serializers for element types, primitive arrays with custom serializers
-        when (classifierFqName) {
+            // TODO custom serializers for element types, primitive arrays with custom serializers
             "kotlin.Array", "kotlin.ShortArray" -> {
                 val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
                 val elementFqName = elementType.erasedUpperBound.fqNameWhenAvailable
@@ -151,7 +138,9 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
 
         // Generic parceler case
         when {
-            classifier.isSubclassOfFqName("android.os.Parcelable") -> {
+            classifier.isSubclassOfFqName("android.os.Parcelable")
+                    // Avoid infinite loops when deriving parcelers for enum or object classes.
+                    && !(toplevel && (classifier.isObject || classifier.isEnumClass)) -> {
                 if (classifier.modality == Modality.FINAL) {
                     // Try to use the CREATOR field directly, if it exists.
                     // In Java classes or compiled Kotlin classes annotated with @Parcelize, we'll have a field in the class itself.
@@ -172,6 +161,15 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                 }
                 return GenericParcelableSerializer(irType)
             }
+
+            classifier.isSubclassOfFqName("android.os.IBinder") ->
+                return iBinderSerializer
+
+            classifier.isObject ->
+                return ObjectSerializer(classifier)
+
+            classifier.isEnumClass ->
+                return wrapNullableSerializerIfNeeded(irType, EnumSerializer(classifier))
 
             classifier.isSubclassOfFqName("java.io.Serializable") ->
                 return serializableSerializer

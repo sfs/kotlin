@@ -167,7 +167,7 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
         get() = if (kind == ClassKind.CLASS) {
             NoParameterClassSerializer(this)
         } else {
-            serializerFactory.get(defaultType, strict = true)
+            serializerFactory.get(defaultType, strict = true, toplevel = true)
         }
 
     private val IrClass.parcelableProperties: List<ParcelableProperty>
