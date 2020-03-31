@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
+import org.jetbrains.kotlin.android.parcel.PARCELER_FQNAME
 import org.jetbrains.kotlin.android.parcel.PARCELIZE_CLASS_FQNAME
 import org.jetbrains.kotlin.android.parcel.serializers.ParcelableExtensionBase
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
@@ -23,6 +24,7 @@ import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class ParcelableIrTransformer(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols) :
     ParcelableExtensionBase, IrElementTransformerVoidWithContext() {
@@ -36,6 +38,11 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
             return declaration
 
         val parcelableProperties = declaration.parcelableProperties
+
+        // If the companion extends Parceler, it can override parts of the generated implementation.
+        val parcelerObject = declaration.companionObject()?.safeAs<IrClass>()?.takeIf {
+            it.isSubclassOfFqName(PARCELER_FQNAME.asString())
+        }?.let(::IrParcelerObject)
 
         if (declaration.descriptor.hasSyntheticDescribeContents()) {
             declaration.addFunction("describeContents", context.irBuiltIns.intType, modality = Modality.OPEN).apply {
@@ -54,17 +61,22 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
 
                 body = androidSymbols.createBuilder(symbol).run {
                     irBlockBody {
-                        if (parcelableProperties.isNotEmpty()) {
-                            for (property in parcelableProperties) {
-                                +writeParcelWith(
-                                    property.parceler,
-                                    parcelParameter,
-                                    flagsParameter,
-                                    irGetField(irGet(receiverParameter), property.field)
-                                )
-                            }
-                        } else {
-                            +writeParcelWith(declaration.classParceler, parcelParameter, flagsParameter, irGet(receiverParameter))
+                        when {
+                            parcelerObject != null ->
+                                +parcelerWrite(parcelerObject, parcelParameter, flagsParameter, irGet(receiverParameter))
+
+                            parcelableProperties.isNotEmpty() ->
+                                for (property in parcelableProperties) {
+                                    +writeParcelWith(
+                                        property.parceler,
+                                        parcelParameter,
+                                        flagsParameter,
+                                        irGetField(irGet(receiverParameter), property.field)
+                                    )
+                                }
+
+                            else ->
+                                +writeParcelWith(declaration.classParceler, parcelParameter, flagsParameter, irGet(receiverParameter))
                         }
                     }
                 }
@@ -73,63 +85,75 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
 
         val creatorType = androidSymbols.androidOsParcelableCreator.typeWith(declaration.defaultType)
 
-        // TODO: hasCreatorField
-        declaration.addField {
-            name = ParcelableExtensionBase.CREATOR_NAME
-            type = creatorType
-            isStatic = true
-        }.apply {
-            val irField = this
-            val creatorClass = buildClass {
-                name = Name.identifier("Creator")
-                visibility = Visibilities.LOCAL
+        if (!declaration.descriptor.hasCreatorField()) {
+            declaration.addField {
+                name = ParcelableExtensionBase.CREATOR_NAME
+                type = creatorType
+                isStatic = true
             }.apply {
-                parent = irField
-                superTypes = listOf(creatorType)
-                createImplicitParameterDeclarationWithWrappedDescriptor()
-
-                addConstructor {
-                    isPrimary = true
+                val irField = this
+                val creatorClass = buildClass {
+                    name = Name.identifier("Creator")
+                    visibility = Visibilities.LOCAL
                 }.apply {
-                    body = context.createIrBuilder(symbol).irBlockBody {
-                        +irDelegatingConstructorCall(context.irBuiltIns.anyClass.owner.constructors.single())
-                    }
-                }
+                    parent = irField
+                    superTypes = listOf(creatorType)
+                    createImplicitParameterDeclarationWithWrappedDescriptor()
 
-                val arrayType = context.irBuiltIns.arrayClass.typeWith(declaration.defaultType.makeNullable())
-                addFunction("newArray", arrayType).apply {
-                    overriddenSymbols = listOf(androidSymbols.androidOsParcelableCreator.getSimpleFunction(name.asString())!!)
-                    val sizeParameter = addValueParameter("size", context.irBuiltIns.intType)
-                    body = context.createIrBuilder(symbol).run {
-                        irExprBody(irCall(androidSymbols.irSymbols.arrayOfNulls, arrayType).apply {
-                            putTypeArgument(0, arrayType)
-                            putValueArgument(0, irGet(sizeParameter))
-                        })
+                    addConstructor {
+                        isPrimary = true
+                    }.apply {
+                        body = context.createIrBuilder(symbol).irBlockBody {
+                            +irDelegatingConstructorCall(context.irBuiltIns.anyClass.owner.constructors.single())
+                        }
                     }
-                }
 
-                addFunction("createFromParcel", declaration.defaultType).apply {
-                    overriddenSymbols = listOf(androidSymbols.androidOsParcelableCreator.getSimpleFunction(name.asString())!!)
-                    val parcelParameter = addValueParameter("parcel", androidSymbols.androidOsParcel.defaultType)
-                    body = androidSymbols.createBuilder(symbol).run {
-                        irExprBody(if (parcelableProperties.isNotEmpty()) {
-                            irCall(declaration.primaryConstructor!!).apply {
-                                for ((index, property) in parcelableProperties.withIndex()) {
-                                    putValueArgument(index, readParcelWith(property.parceler, parcelParameter))
+                    val arrayType = context.irBuiltIns.arrayClass.typeWith(declaration.defaultType.makeNullable())
+                    addFunction("newArray", arrayType).apply {
+                        // TODO: Call through parceler if implemented
+                        overriddenSymbols = listOf(androidSymbols.androidOsParcelableCreator.getSimpleFunction(name.asString())!!)
+                        val sizeParameter = addValueParameter("size", context.irBuiltIns.intType)
+                        body = context.createIrBuilder(symbol).run {
+                            irExprBody(
+                                parcelerNewArray(parcelerObject, sizeParameter)
+                                    ?: irCall(androidSymbols.irSymbols.arrayOfNulls, arrayType).apply {
+                                        putTypeArgument(0, arrayType)
+                                        putValueArgument(0, irGet(sizeParameter))
+                                    }
+                            )
+                        }
+                    }
+
+                    addFunction("createFromParcel", declaration.defaultType).apply {
+                        overriddenSymbols = listOf(androidSymbols.androidOsParcelableCreator.getSimpleFunction(name.asString())!!)
+                        val parcelParameter = addValueParameter("parcel", androidSymbols.androidOsParcel.defaultType)
+                        body = androidSymbols.createBuilder(symbol).run {
+                            irExprBody(
+                                when {
+                                    parcelerObject != null ->
+                                        parcelerCreate(parcelerObject, parcelParameter)
+
+                                    parcelableProperties.isNotEmpty() ->
+                                        irCall(declaration.primaryConstructor!!).apply {
+                                            for ((index, property) in parcelableProperties.withIndex()) {
+                                                putValueArgument(index, readParcelWith(property.parceler, parcelParameter))
+                                            }
+                                        }
+
+                                    else ->
+                                        readParcelWith(declaration.classParceler, parcelParameter)
                                 }
-                            }
-                        } else {
-                            readParcelWith(declaration.classParceler, parcelParameter)
-                        })
+                            )
+                        }
                     }
                 }
-            }
 
-            initializer = context.createIrBuilder(symbol).run {
-                irExprBody(irBlock {
-                    +creatorClass
-                    +irCall(creatorClass.primaryConstructor!!)
-                })
+                initializer = context.createIrBuilder(symbol).run {
+                    irExprBody(irBlock {
+                        +creatorClass
+                        +irCall(creatorClass.primaryConstructor!!)
+                    })
+                }
             }
         }
 
