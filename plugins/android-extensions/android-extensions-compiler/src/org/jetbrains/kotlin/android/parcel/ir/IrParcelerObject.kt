@@ -15,9 +15,11 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrValueDeclaration
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
+import org.jetbrains.kotlin.name.FqName
 
 class IrParcelerObject(val objectClass: IrClass) {
     // fun T.write(parcel: Parcel, flags: Int)
@@ -38,6 +40,18 @@ class IrParcelerObject(val objectClass: IrClass) {
                 it.parentClassOrNull?.fqNameWhenAvailable == PARCELER_FQNAME
             }
         }?.symbol
+}
+
+// Custom parcelers are resolved in *reverse* lexical scope order (why??)
+class ParcelerScope(val parent: ParcelerScope? = null) {
+    private val typeParcelers = mutableMapOf<IrType, IrParcelerObject>()
+
+    fun add(type: IrType, parceler: IrParcelerObject) {
+        typeParcelers.putIfAbsent(type, parceler)
+    }
+
+    fun get(type: IrType): IrParcelerObject? =
+        parent?.get(type) ?: typeParcelers[type]
 }
 
 fun IrBuilderWithScope.parcelerWrite(

@@ -195,7 +195,7 @@ class EfficientParcelableSerializer(val irClass: IrClass, val creatorField: IrFi
     }
 }
 
-class GenericParcelableSerializer(val parcelType: IrType) : IrParcelSerializer {
+class GenericParcelableSerializer(private val parcelType: IrType) : IrParcelSerializer {
     override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression =
         parcelReadParcelable(irGet(parcel), classGetClassLoader(javaClassReference(parcelType)))
 
@@ -203,12 +203,20 @@ class GenericParcelableSerializer(val parcelType: IrType) : IrParcelSerializer {
         parcelWriteParcelable(irGet(parcel), value, irGet(flags))
 }
 
-class GenericSerializer(val parcelType: IrType) : IrParcelSerializer {
+class GenericSerializer(private val parcelType: IrType) : IrParcelSerializer {
     override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression =
         parcelReadValue(irGet(parcel), classGetClassLoader(javaClassReference(parcelType)))
 
     override fun AndroidIrBuilder.writeParcel(parcel: IrValueDeclaration, flags: IrValueDeclaration, value: IrExpression): IrExpression =
         parcelWriteValue(irGet(parcel), value)
+}
+
+class CustomParcelSerializer(private val parcelerObject: IrParcelerObject) : IrParcelSerializer {
+    override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression =
+        parcelerCreate(parcelerObject, parcel)
+
+    override fun AndroidIrBuilder.writeParcel(parcel: IrValueDeclaration, flags: IrValueDeclaration, value: IrExpression): IrExpression =
+        parcelerWrite(parcelerObject, parcel, flags, value)
 }
 
 // TODO: Unsigned array types

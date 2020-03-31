@@ -5,9 +5,11 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
+import kotlinx.android.parcel.TypeParceler
 import org.jetbrains.kotlin.android.parcel.PARCELER_FQNAME
 import org.jetbrains.kotlin.android.parcel.PARCELIZE_CLASS_FQNAME
 import org.jetbrains.kotlin.android.parcel.serializers.ParcelableExtensionBase
+import org.jetbrains.kotlin.android.parcel.serializers.TypeParcelerMapping
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
@@ -19,10 +21,12 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
@@ -167,7 +171,7 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
         get() = if (kind == ClassKind.CLASS) {
             NoParameterClassSerializer(this)
         } else {
-            serializerFactory.get(defaultType, strict = true, toplevel = true)
+            serializerFactory.get(defaultType, strict = true, toplevel = true, scope = getParcelerScope())
         }
 
     private val IrClass.parcelableProperties: List<ParcelableProperty>
@@ -175,10 +179,12 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
             if (kind != ClassKind.CLASS) return emptyList()
 
             val constructor = primaryConstructor ?: return emptyList()
+            val toplevelScope = getParcelerScope()
 
             return constructor.valueParameters.map { parameter ->
                 val property = properties.first { it.name == parameter.name }
-                ParcelableProperty(property.backingField!!, serializerFactory.get(parameter.type, strict = true))
+                val localScope = property.getParcelerScope(toplevelScope)
+                ParcelableProperty(property.backingField!!, serializerFactory.get(parameter.type, strict = true, scope = localScope))
             }
         }
 
@@ -192,4 +198,26 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
                     (this as? IrSimpleType)?.arguments?.any { argument ->
                         argument.typeOrNull?.containsFileDescriptors == true
                     } == true
+
+    private fun IrAnnotationContainer.getParcelerScope(parent: ParcelerScope? = null): ParcelerScope? {
+        // TODO: Move to constant
+        val typeParcelerFqName = FqName(TypeParceler::class.java.name)
+
+        val typeParcelerAnnotations = annotations.filterTo(mutableListOf()) {
+            it.symbol.owner.constructedClass.fqNameWhenAvailable == typeParcelerFqName
+        }
+
+        if (typeParcelerAnnotations.isEmpty())
+            return parent
+
+        val scope = ParcelerScope(parent)
+
+        for (anno in typeParcelerAnnotations) {
+            val (mappedType, parcelerType) = (anno.type as IrSimpleType).arguments.map { it.typeOrNull!! }
+            val parcelerClass = parcelerType.getClass()!!
+            scope.add(mappedType, IrParcelerObject(parcelerClass))
+        }
+
+        return scope
+    }
 }

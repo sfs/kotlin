@@ -5,26 +5,29 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
+import kotlinx.android.parcel.WriteWith
 import org.jetbrains.kotlin.android.parcel.serializers.RAWVALUE_ANNOTATION_FQNAME
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
-import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.isNullable
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: AndroidSymbols) {
-    fun get(irType: IrType, strict: Boolean = false, toplevel: Boolean = false): IrParcelSerializer {
+    fun get(irType: IrType, scope: ParcelerScope?, strict: Boolean = false, toplevel: Boolean = false): IrParcelSerializer {
         fun strict() = strict && !irType.hasAnnotation(RAWVALUE_ANNOTATION_FQNAME)
+
+        irType.getAnnotation(FqName(WriteWith::class.java.name))?.let { writeWith ->
+            val parcelerClass = (writeWith.type as IrSimpleType).arguments.single().typeOrNull!!.getClass()!!
+            return CustomParcelSerializer(IrParcelerObject(parcelerClass))
+        }
+        scope?.get(irType)?.let { parceler -> return CustomParcelSerializer(parceler) }
 
         // TODO inline classes
         val classifier = irType.erasedUpperBound
-
-        // TODO custom serializers
 
         when (val classifierFqName = classifier.fqNameWhenAvailable?.asString()) {
             "kotlin.String", "java.lang.String" ->
@@ -89,17 +92,17 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                 return when (elementFqName?.asString()) {
                     "java.lang.String", "kotlin.String" -> stringArraySerializer
                     "android.os.IBinder" -> iBinderArraySerializer
-                    else -> ArraySerializer(/*TODO*/irType, elementType, get(elementType, strict()))
+                    else -> ArraySerializer(/*TODO*/irType, elementType, get(elementType, scope, strict()))
                 }
             }
 
             "android.util.SparseIntArray" ->
-                return SparseArraySerializer(classifier.defaultType, builtIns.intType, get(builtIns.intType, strict()))
+                return SparseArraySerializer(classifier.defaultType, builtIns.intType, get(builtIns.intType, scope, strict()))
             "android.util.SparseLongArray" ->
-                return SparseArraySerializer(classifier.defaultType, builtIns.longType, get(builtIns.longType, strict()))
+                return SparseArraySerializer(classifier.defaultType, builtIns.longType, get(builtIns.longType, scope, strict()))
             "android.util.SparseArray" -> {
                 val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
-                return SparseArraySerializer(/*TODO*/irType, elementType, get(elementType, strict()))
+                return SparseArraySerializer(/*TODO*/irType, elementType, get(elementType, scope, strict()))
             }
 
             // TODO: More java collections?
@@ -122,7 +125,7 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                             return stringListSerializer
                     }
                 }
-                return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, strict())))
+                return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, scope, strict())))
             }
 
             "kotlin.collections.MutableMap", "kotlin.collections.Map", "java.util.Map",
@@ -132,7 +135,8 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             "java.util.concurrent.ConcurrentHashMap" -> {
                 val keyType = (irType as IrSimpleType).arguments[0].upperBound(builtIns)
                 val valueType = irType.arguments[1].upperBound(builtIns)
-                return wrapNullableSerializerIfNeeded(irType, MapParceler(classifier, get(keyType, strict()), get(valueType, strict())))
+                val parceler = MapParceler(classifier, get(keyType, scope, strict()), get(valueType, scope, strict()))
+                return wrapNullableSerializerIfNeeded(irType, parceler)
             }
         }
 
