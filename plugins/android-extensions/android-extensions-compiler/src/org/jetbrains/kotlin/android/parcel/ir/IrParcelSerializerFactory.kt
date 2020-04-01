@@ -15,10 +15,11 @@ import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.resolve.source.PsiSourceElement
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: AndroidSymbols) {
-    fun get(irType: IrType, scope: ParcelerScope?, strict: Boolean = false, toplevel: Boolean = false): IrParcelSerializer {
+    fun get(irType: IrType, scope: ParcelerScope?, parcelizeType: IrType, strict: Boolean = false, toplevel: Boolean = false): IrParcelSerializer {
         fun strict() = strict && !irType.hasAnnotation(RAWVALUE_ANNOTATION_FQNAME)
 
         fun getCustomSerializer(irType: IrType): IrParcelerObject? {
@@ -117,19 +118,19 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                     }
                 }
 
-                return ArraySerializer(/*TODO*/irType, elementType, get(elementType, scope, strict()))
+                return ArraySerializer(/*TODO*/irType, elementType, get(elementType, scope, parcelizeType, strict()))
             }
 
             // This will only be hit if we have a custom serializer for booleans
             "android.util.SparseBooleanArray" ->
-                return SparseArraySerializer(classifier.defaultType, builtIns.booleanType, get(builtIns.booleanType, scope, strict()))
+                return SparseArraySerializer(classifier.defaultType, builtIns.booleanType, get(builtIns.booleanType, scope, parcelizeType, strict()))
             "android.util.SparseIntArray" ->
-                return SparseArraySerializer(classifier.defaultType, builtIns.intType, get(builtIns.intType, scope, strict()))
+                return SparseArraySerializer(classifier.defaultType, builtIns.intType, get(builtIns.intType, scope, parcelizeType, strict()))
             "android.util.SparseLongArray" ->
-                return SparseArraySerializer(classifier.defaultType, builtIns.longType, get(builtIns.longType, scope, strict()))
+                return SparseArraySerializer(classifier.defaultType, builtIns.longType, get(builtIns.longType, scope, parcelizeType, strict()))
             "android.util.SparseArray" -> {
                 val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
-                return SparseArraySerializer(/*TODO*/irType, elementType, get(elementType, scope, strict()))
+                return SparseArraySerializer(/*TODO*/irType, elementType, get(elementType, scope, parcelizeType, strict()))
             }
 
             // TODO: More java collections?
@@ -151,7 +152,7 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                             return stringListSerializer
                     }
                 }
-                return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, scope, strict())))
+                return wrapNullableSerializerIfNeeded(irType, ListParceler(classifier, get(elementType, scope, parcelizeType, strict())))
             }
 
             "kotlin.collections.MutableMap", "kotlin.collections.Map", "java.util.Map",
@@ -161,7 +162,7 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             "java.util.concurrent.ConcurrentHashMap" -> {
                 val keyType = (irType as IrSimpleType).arguments[0].upperBound(builtIns)
                 val valueType = irType.arguments[1].upperBound(builtIns)
-                val parceler = MapParceler(classifier, get(keyType, scope, strict()), get(valueType, scope, strict()))
+                val parceler = MapParceler(classifier, get(keyType, scope, parcelizeType, strict()), get(valueType, scope, parcelizeType, strict()))
                 return wrapNullableSerializerIfNeeded(irType, parceler)
             }
         }
@@ -171,14 +172,18 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             classifier.isSubclassOfFqName("android.os.Parcelable")
                     // Avoid infinite loops when deriving parcelers for enum or object classes.
                     && !(toplevel && (classifier.isObject || classifier.isEnumClass)) -> {
-                if (classifier.modality == Modality.FINAL) {
+                // According to the JLS, changing a class from final to non-final is a binary compatible change, hence we
+                // cannot use the writeToParcel/readFromParcel methods directly when serializing classes coming from external
+                // dependencies. This issue was originally reported in KT-20029. Also note that this optimization should
+                // apply to all classes which implement Parcelable, not just to @Parcelize instances (KT-20030).
+                if (classifier.modality == Modality.FINAL && classifier.descriptor.source is PsiSourceElement) {
                     // Try to use the CREATOR field directly, if it exists.
                     // In Java classes or compiled Kotlin classes annotated with @Parcelize, we'll have a field in the class itself.
                     // With Parcelable instances which were manually implemented in Kotlin, we'll instead have an @JvmField property
                     // getter in the companion object.
                     val creatorField = classifier.fields.find { field -> field.name.asString() == "CREATOR" }
                     val creatorGetter = classifier.companionObject()?.safeAs<IrClass>()?.getPropertyGetter("CREATOR")?.takeIf {
-                        it.owner.hasAnnotation(FqName("kotlin.jvm.JvmField"))
+                        it.owner.correspondingPropertySymbol?.owner?.backingField?.hasAnnotation(FqName("kotlin.jvm.JvmField")) == true
                     }
                     // TODO: For @Parcelize classes in the same module, the creator field may not exist yet, so we'll miss them here.
 
@@ -189,7 +194,7 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                         )
                     }
                 }
-                return GenericParcelableSerializer(irType)
+                return GenericParcelableSerializer(parcelizeType)
             }
 
             classifier.isSubclassOfFqName("android.os.IBinder") ->
@@ -208,7 +213,7 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                 throw IllegalArgumentException("Illegal type, could not find a specific serializer for ${irType.render()}")
 
             else ->
-                return GenericSerializer(irType)
+                return GenericSerializer(parcelizeType)
         }
     }
 

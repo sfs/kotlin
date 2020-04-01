@@ -94,6 +94,7 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
                 name = ParcelableExtensionBase.CREATOR_NAME
                 type = creatorType
                 isStatic = true
+                isFinal = true
             }.apply {
                 val irField = this
                 val creatorClass = buildClass {
@@ -164,14 +165,13 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
         return declaration
     }
 
-
     private data class ParcelableProperty(val field: IrField, val parceler: IrParcelSerializer)
 
     private val IrClass.classParceler: IrParcelSerializer
         get() = if (kind == ClassKind.CLASS) {
             NoParameterClassSerializer(this)
         } else {
-            serializerFactory.get(defaultType, strict = true, toplevel = true, scope = getParcelerScope())
+            serializerFactory.get(defaultType, parcelizeType = defaultType, strict = true, toplevel = true, scope = getParcelerScope())
         }
 
     private val IrClass.parcelableProperties: List<ParcelableProperty>
@@ -184,7 +184,8 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
             return constructor.valueParameters.map { parameter ->
                 val property = properties.first { it.name == parameter.name }
                 val localScope = property.getParcelerScope(toplevelScope)
-                ParcelableProperty(property.backingField!!, serializerFactory.get(parameter.type, strict = true, scope = localScope))
+                val parceler = serializerFactory.get(parameter.type, parcelizeType = defaultType, strict = true, scope = localScope)
+                ParcelableProperty(property.backingField!!, parceler)
             }
         }
 

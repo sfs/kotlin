@@ -195,17 +195,18 @@ class EfficientParcelableSerializer(val irClass: IrClass, val creatorField: IrFi
     }
 }
 
-class GenericParcelableSerializer(private val parcelType: IrType) : IrParcelSerializer {
+// This needs a reference to the parcelize type itself in order to find the correct class loader to use, see KT-20027.
+class GenericParcelableSerializer(private val parcelizeType: IrType) : IrParcelSerializer {
     override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression =
-        parcelReadParcelable(irGet(parcel), classGetClassLoader(javaClassReference(parcelType)))
+        parcelReadParcelable(irGet(parcel), classGetClassLoader(javaClassReference(parcelizeType)))
 
     override fun AndroidIrBuilder.writeParcel(parcel: IrValueDeclaration, flags: IrValueDeclaration, value: IrExpression): IrExpression =
         parcelWriteParcelable(irGet(parcel), value, irGet(flags))
 }
 
-class GenericSerializer(private val parcelType: IrType) : IrParcelSerializer {
+class GenericSerializer(private val parcelizeType: IrType) : IrParcelSerializer {
     override fun AndroidIrBuilder.readParcel(parcel: IrValueDeclaration): IrExpression =
-        parcelReadValue(irGet(parcel), classGetClassLoader(javaClassReference(parcelType)))
+        parcelReadValue(irGet(parcel), classGetClassLoader(javaClassReference(parcelizeType)))
 
     override fun AndroidIrBuilder.writeParcel(parcel: IrValueDeclaration, flags: IrValueDeclaration, value: IrExpression): IrExpression =
         parcelWriteValue(irGet(parcel), value)

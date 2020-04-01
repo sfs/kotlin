@@ -17,9 +17,7 @@ import org.junit.runner.RunWith
 
 // TODO: Autogenerate this file along with ParcelBoxTest
 @RunWith(JUnit3RunnerWithInners::class)
-class IrParcelBoxTest : AbstractParcelBoxTest() {
-    override fun getBackend() = TargetBackend.JVM_IR
-
+class IrParcelBoxTest : AbstractParcelIrBoxTest() {
     fun testSimple() = doTest("simple")
     fun testPrimitiveTypes() = doTest("primitiveTypes")
     fun testAllPrimitiveTypes() = doTest("allPrimitiveTypes")
