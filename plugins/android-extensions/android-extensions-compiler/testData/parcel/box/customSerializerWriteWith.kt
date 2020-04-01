@@ -1,3 +1,5 @@
+// IGNORE_BACKEND: JVM
+// The JVM backend is missing support for custom parcelers in List<String>
 // WITH_RUNTIME
 
 @file:JvmName("TestKt")

@@ -26,8 +26,7 @@ import java.util.concurrent.TimeUnit
 
 abstract class AbstractParcelBoxTest : CodegenTestCase() {
     protected companion object {
-        const val BASE_DIR = "plugins/android-extensions/android-extensions-compiler/testData/parcel/box"
-        val LIBRARY_KT = File(File(BASE_DIR).parentFile, "boxLib.kt")
+        val LIBRARY_KT = File("plugins/android-extensions/android-extensions-compiler/testData/parcel/boxLib.kt")
 
         private val JUNIT_GENERATED_TEST_CLASS_BYTES by lazy { constructSyntheticTestClass() }
         private const val JUNIT_GENERATED_TEST_CLASS_FQNAME = "test.JunitTest"
@@ -92,10 +91,6 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
         }
     }
 
-    override fun doTest(filePath: String) {
-        super.doTest(File(BASE_DIR, "$filePath.kt").absolutePath)
-    }
-
     private val androidPluginPath: String by lazy {
         System.getProperty("ideaSdk.androidPlugin.path")?.takeIf { File(it).isDirectory }
             ?: throw RuntimeException("Unable to get a valid path from 'ideaSdk.androidPlugin.path' property, please point it to the Idea android plugin location")
@@ -146,16 +141,14 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
             val process = ProcessBuilder(
                 javaExe.absolutePath,
                 "-ea",
-//                "-Drobolectric.offline=true",
-//                "-Drobolectric.logging.enabled=true",
                 "-classpath",
                 (libraryClasspath + dirForTestClasses).joinToString(File.pathSeparator),
                 JUnitCore::class.java.name,
                 JUNIT_GENERATED_TEST_CLASS_FQNAME
-            )/*.inheritIO()*/.start()
+            ).start()
 
             process.waitFor(3, TimeUnit.MINUTES)
-            print(process.inputStream.bufferedReader().lineSequence().joinToString("\n"))
+            println(process.inputStream.bufferedReader().lineSequence().joinToString("\n"))
             if (process.exitValue() != 0) {
                 throw AssertionError("Process exited with exit code ${process.exitValue()} \n" + classFileFactory.createText())
             }
