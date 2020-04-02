@@ -137,6 +137,7 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
         try {
             writeClass(JUNIT_GENERATED_TEST_CLASS_FQNAME, JUNIT_GENERATED_TEST_CLASS_BYTES)
             classFileFactory.getClassFiles().forEach { writeClass(it.relativePath, it.asByteArray()) }
+            javaClassesOutputDirectory?.listFiles()?.forEach { writeClass(it.name, it.readBytes()) }
 
             val process = ProcessBuilder(
                 javaExe.absolutePath,
@@ -163,5 +164,9 @@ abstract class AbstractParcelBoxTest : CodegenTestCase() {
         AndroidComponentRegistrar.registerParcelExtensions(environment.project)
         addAndroidExtensionsRuntimeLibrary(environment)
         environment.updateClasspath(listOf(JvmClasspathRoot(File(androidPluginPath, "layoutlib-26.5.0.2.jar"))))
+    }
+
+    override fun updateJavaClasspath(javaClasspath: MutableList<String>) {
+        javaClasspath += File(androidPluginPath, "layoutlib-26.5.0.2.jar").path
     }
 }
