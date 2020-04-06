@@ -6,7 +6,6 @@ public final class User$Creator : java/lang/Object, android/os/Parcelable$Creato
           ALOAD (1)
           LDC (parcel)
           INVOKESTATIC (kotlin/jvm/internal/Intrinsics, checkNotNullParameter, (Ljava/lang/Object;Ljava/lang/String;)V)
-        LABEL (L1)
           NEW
           DUP
           ALOAD (1)
