@@ -36,7 +36,7 @@ fun ParcelerScope?.getCustomSerializer(irType: IrType): IrClass? =
 fun ParcelerScope?.hasCustomSerializer(irType: IrType): Boolean =
     getCustomSerializer(irType) != null
 
-class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: AndroidSymbols) {
+class IrParcelSerializerFactory(symbols: AndroidSymbols) {
     /**
      * Resolve the given [irType] to a corresponding [IrParcelSerializer]. This depends on the TypeParcelers which
      * are currently in [scope], as well as the type of the enclosing Parceleable class [parcelizeType], which is needed
@@ -97,28 +97,28 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
 
             // Built-in non-parameterized container types.
             "kotlin.IntArray" ->
-                if (!scope.hasCustomSerializer(builtIns.intType))
+                if (!scope.hasCustomSerializer(irBuiltIns.intType))
                     return intArraySerializer
             "kotlin.BooleanArray" ->
-                if (!scope.hasCustomSerializer(builtIns.booleanType))
+                if (!scope.hasCustomSerializer(irBuiltIns.booleanType))
                     return booleanArraySerializer
             "kotlin.ByteArray" ->
-                if (!scope.hasCustomSerializer(builtIns.byteType))
+                if (!scope.hasCustomSerializer(irBuiltIns.byteType))
                     return byteArraySerializer
             "kotlin.CharArray" ->
-                if (!scope.hasCustomSerializer(builtIns.charType))
+                if (!scope.hasCustomSerializer(irBuiltIns.charType))
                     return charArraySerializer
             "kotlin.FloatArray" ->
-                if (!scope.hasCustomSerializer(builtIns.floatType))
+                if (!scope.hasCustomSerializer(irBuiltIns.floatType))
                     return floatArraySerializer
             "kotlin.DoubleArray" ->
-                if (!scope.hasCustomSerializer(builtIns.doubleType))
+                if (!scope.hasCustomSerializer(irBuiltIns.doubleType))
                     return doubleArraySerializer
             "kotlin.LongArray" ->
-                if (!scope.hasCustomSerializer(builtIns.longType))
+                if (!scope.hasCustomSerializer(irBuiltIns.longType))
                     return longArraySerializer
             "android.util.SparseBooleanArray" ->
-                if (!scope.hasCustomSerializer(builtIns.booleanType))
+                if (!scope.hasCustomSerializer(irBuiltIns.booleanType))
                     return sparseBooleanArraySerializer
         }
 
@@ -129,7 +129,7 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             "kotlin.Array", "kotlin.ShortArray", "kotlin.IntArray",
             "kotlin.BooleanArray", "kotlin.ByteArray", "kotlin.CharArray",
             "kotlin.FloatArray", "kotlin.DoubleArray", "kotlin.LongArray" -> {
-                val elementType = irType.getArrayElementType(builtIns)
+                val elementType = irType.getArrayElementType(irBuiltIns)
 
                 if (!scope.hasCustomSerializer(elementType)) {
                     when (elementType.erasedUpperBound.fqNameWhenAvailable?.asString()) {
@@ -141,19 +141,19 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
                 }
 
                 val arrayType =
-                    if (classifier.defaultType.isPrimitiveArray()) classifier.defaultType else builtIns.arrayClass.typeWith(elementType)
+                    if (classifier.defaultType.isPrimitiveArray()) classifier.defaultType else irBuiltIns.arrayClass.typeWith(elementType)
                 return ArraySerializer(arrayType, elementType, get(elementType, scope, parcelizeType, strict()))
             }
 
             // This will only be hit if we have a custom serializer for booleans
             "android.util.SparseBooleanArray" ->
-                return SparseArraySerializer(classifier, builtIns.booleanType, get(builtIns.booleanType, scope, parcelizeType, strict()))
+                return SparseArraySerializer(classifier, irBuiltIns.booleanType, get(irBuiltIns.booleanType, scope, parcelizeType, strict()))
             "android.util.SparseIntArray" ->
-                return SparseArraySerializer(classifier, builtIns.intType, get(builtIns.intType, scope, parcelizeType, strict()))
+                return SparseArraySerializer(classifier, irBuiltIns.intType, get(irBuiltIns.intType, scope, parcelizeType, strict()))
             "android.util.SparseLongArray" ->
-                return SparseArraySerializer(classifier, builtIns.longType, get(builtIns.longType, scope, parcelizeType, strict()))
+                return SparseArraySerializer(classifier, irBuiltIns.longType, get(irBuiltIns.longType, scope, parcelizeType, strict()))
             "android.util.SparseArray" -> {
-                val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
+                val elementType = (irType as IrSimpleType).arguments.single().upperBound(irBuiltIns)
                 return SparseArraySerializer(classifier, elementType, get(elementType, scope, parcelizeType, strict()))
             }
 
@@ -167,7 +167,7 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             "kotlin.collections.HashSet", "java.util.HashSet",
             "kotlin.collections.LinkedHashSet", "java.util.LinkedHashSet",
             "java.util.NavigableSet", "java.util.SortedSet" -> {
-                val elementType = (irType as IrSimpleType).arguments.single().upperBound(builtIns)
+                val elementType = (irType as IrSimpleType).arguments.single().upperBound(irBuiltIns)
                 if (!scope.hasCustomSerializer(elementType) && classifierFqName in setOf(
                         "kotlin.collections.List", "kotlin.collections.MutableList", "kotlin.collections.ArrayList",
                         "java.util.List", "java.util.ArrayList"
@@ -188,8 +188,8 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
             "kotlin.collections.LinkedHashMap", "java.util.LinkedHashMap",
             "java.util.SortedMap", "java.util.NavigableMap", "java.util.TreeMap",
             "java.util.concurrent.ConcurrentHashMap" -> {
-                val keyType = (irType as IrSimpleType).arguments[0].upperBound(builtIns)
-                val valueType = irType.arguments[1].upperBound(builtIns)
+                val keyType = (irType as IrSimpleType).arguments[0].upperBound(irBuiltIns)
+                val valueType = irType.arguments[1].upperBound(irBuiltIns)
                 val parceler =
                     MapParceler(classifier, get(keyType, scope, parcelizeType, strict()), get(valueType, scope, parcelizeType, strict()))
                 return wrapNullableSerializerIfNeeded(irType, parceler)
@@ -246,6 +246,8 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
     private fun wrapNullableSerializerIfNeeded(irType: IrType, serializer: IrParcelSerializer) =
         if (irType.isNullable()) NullAwareParcelSerializer(serializer) else serializer
 
+    private val irBuiltIns: IrBuiltIns = symbols.irBuiltIns
+
     private val stringArraySerializer = SimpleParcelSerializer(symbols.parcelCreateStringArray, symbols.parcelWriteStringArray)
     private val stringListSerializer = SimpleParcelSerializer(symbols.parcelCreateStringArrayList, symbols.parcelWriteStringList)
     private val iBinderSerializer = SimpleParcelSerializer(symbols.parcelReadStrongBinder, symbols.parcelWriteStrongBinder)
@@ -267,9 +269,9 @@ class IrParcelSerializerFactory(private val builtIns: IrBuiltIns, symbols: Andro
     private val longArraySerializer = SimpleParcelSerializer(symbols.parcelCreateLongArray, symbols.parcelWriteLongArray)
 
     // Primitive types without dedicated read/write methods need an additional cast.
-    private val booleanSerializer = WrappedParcelSerializer(builtIns.booleanType, intSerializer)
-    private val shortSerializer = WrappedParcelSerializer(builtIns.shortType, intSerializer)
-    private val charSerializer = WrappedParcelSerializer(builtIns.charType, intSerializer)
+    private val booleanSerializer = WrappedParcelSerializer(irBuiltIns.booleanType, intSerializer)
+    private val shortSerializer = WrappedParcelSerializer(irBuiltIns.shortType, intSerializer)
+    private val charSerializer = WrappedParcelSerializer(irBuiltIns.charType, intSerializer)
 
     private val charSequenceSerializer = CharSequenceSerializer()
 

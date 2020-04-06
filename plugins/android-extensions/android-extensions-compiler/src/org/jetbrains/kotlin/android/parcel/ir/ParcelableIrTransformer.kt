@@ -32,7 +32,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class ParcelableIrTransformer(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols) :
     ParcelableExtensionBase, IrElementVisitorVoid {
-    private val serializerFactory = IrParcelSerializerFactory(context.irBuiltIns, androidSymbols)
+    private val serializerFactory = IrParcelSerializerFactory(androidSymbols)
 
     private val deferredOperations = mutableListOf<() -> Unit>()
     private fun defer(block: () -> Unit) = deferredOperations.add(block)
