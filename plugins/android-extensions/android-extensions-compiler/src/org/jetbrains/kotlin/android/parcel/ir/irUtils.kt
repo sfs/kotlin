@@ -5,6 +5,13 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
+import org.jetbrains.kotlin.android.parcel.ANDROID_PARCELABLE_CLASS_FQNAME
+import org.jetbrains.kotlin.android.parcel.ANDROID_PARCELABLE_CREATOR_CLASS_FQNAME
+import org.jetbrains.kotlin.android.parcel.PARCELER_FQNAME
+import org.jetbrains.kotlin.android.parcel.PARCELIZE_CLASS_FQNAME
+import org.jetbrains.kotlin.android.parcel.serializers.ParcelableExtensionBase
+import org.jetbrains.kotlin.android.parcel.serializers.ParcelableExtensionBase.Companion.CREATOR_NAME
+import org.jetbrains.kotlin.backend.common.lower.allOverridden
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -16,11 +23,87 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
-import org.jetbrains.kotlin.ir.util.findDeclaration
-import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
-import org.jetbrains.kotlin.ir.util.getSimpleFunction
-import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.types.Variance
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
+
+val IrClass.isParcelize: Boolean
+    get() = kind in ParcelableExtensionBase.ALLOWED_CLASS_KINDS && hasAnnotation(PARCELIZE_CLASS_FQNAME)
+
+val IrClass.creatorGetter: IrSimpleFunctionSymbol?
+    get() = companionObject()?.safeAs<IrClass>()?.getPropertyGetter(CREATOR_NAME.asString())?.takeIf {
+        it.owner.correspondingPropertySymbol?.owner?.backingField?.hasAnnotation(FqName("kotlin.jvm.JvmField")) == true
+    }
+
+val IrClass.hasCreatorField: Boolean
+    get() = fields.any { field -> field.name == CREATOR_NAME } || creatorGetter != null
+
+// object P : Parceler<T> { fun T.write(parcel: Parcel, flags: Int) ...}
+fun IrBuilderWithScope.parcelerWrite(parceler: IrClass, parcel: IrValueDeclaration, flags: IrValueDeclaration, value: IrExpression) =
+    irCall(parceler.parcelerSymbolByName("write")!!).apply {
+        dispatchReceiver = irGetObject(parceler.symbol)
+        extensionReceiver = value
+        putValueArgument(0, irGet(parcel))
+        putValueArgument(1, irGet(flags))
+    }
+
+// object P : Parceler<T> { fun create(parcel: Parcel): T }
+fun IrBuilderWithScope.parcelerCreate(parceler: IrClass, parcel: IrValueDeclaration): IrExpression =
+    irCall(parceler.parcelerSymbolByName("create")!!).apply {
+        dispatchReceiver = irGetObject(parceler.symbol)
+        putValueArgument(0, irGet(parcel))
+    }
+
+// object P: Parceler<T> { fun newArray(size: Int): Array<T> }
+fun IrBuilderWithScope.parcelerNewArray(parceler: IrClass?, size: IrValueDeclaration): IrExpression? =
+    parceler?.parcelerSymbolByName("newArray")?.let { newArraySymbol ->
+        irCall(newArraySymbol).apply {
+            dispatchReceiver = irGetObject(parceler.symbol)
+            putValueArgument(0, irGet(size))
+        }
+    }
+
+// class Parcelable { fun writeToParcel(parcel: Parcel, flags: Int) ...}
+fun IrBuilderWithScope.parcelableWriteToParcel(
+    parcelableClass: IrClass,
+    parcelable: IrExpression,
+    parcel: IrExpression,
+    flags: IrExpression
+): IrExpression {
+    val writeToParcel = parcelableClass.functions.first { function ->
+        function.name.asString() == "writeToParcel" && function.overridesFunctionIn(ANDROID_PARCELABLE_CLASS_FQNAME)
+    }
+
+    return irCall(writeToParcel).apply {
+        dispatchReceiver = parcelable
+        putValueArgument(0, parcel)
+        putValueArgument(1, flags)
+    }
+}
+
+// class C : Parcelable.Creator<T> { fun createFromParcel(parcel: Parcel): T ...}
+fun IrBuilderWithScope.parcelableCreatorCreateFromParcel(creator: IrExpression, parcel: IrExpression): IrExpression {
+    val createFromParcel = creator.type.getClass()!!.functions.first { function ->
+        function.name.asString() == "createFromParcel" && function.overridesFunctionIn(ANDROID_PARCELABLE_CREATOR_CLASS_FQNAME)
+    }
+
+    return irCall(createFromParcel).apply {
+        dispatchReceiver = creator
+        putValueArgument(0, parcel)
+    }
+}
+
+// Find a named function declaration which overrides the corresponding function in [Parceler].
+// This is more reliable than trying to match the functions signature ourselves, since the frontend
+// has already done the work.
+private fun IrClass.parcelerSymbolByName(name: String): IrSimpleFunctionSymbol? =
+    functions.firstOrNull { function ->
+        !function.isFakeOverride && function.name.asString() == name && function.overridesFunctionIn(PARCELER_FQNAME)
+    }?.symbol
+
+private fun IrSimpleFunction.overridesFunctionIn(fqName: FqName): Boolean =
+    parentClassOrNull?.fqNameWhenAvailable == fqName || allOverridden().any { it.parentClassOrNull?.fqNameWhenAvailable == fqName }
 
 private fun IrBuilderWithScope.kClassReference(classType: IrType) =
     IrClassReferenceImpl(

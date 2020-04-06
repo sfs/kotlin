@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.android.parcel.serializers
 
+import kotlinx.android.parcel.TypeParceler
 import org.jetbrains.kotlin.android.parcel.ParcelableSyntheticComponent
 import org.jetbrains.kotlin.android.parcel.isParcelize
 import org.jetbrains.kotlin.descriptors.ClassDescriptor

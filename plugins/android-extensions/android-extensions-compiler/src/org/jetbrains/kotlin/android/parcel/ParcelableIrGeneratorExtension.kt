@@ -13,6 +13,6 @@ import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 
 class ParcelableIrGeneratorExtension : PureIrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, context: CommonBackendContext) {
-        moduleFragment.transform(ParcelableIrTransformer(context, AndroidSymbols(context, moduleFragment)), null)
+        ParcelableIrTransformer(context, AndroidSymbols(context, moduleFragment)).transform(moduleFragment)
     }
 }

@@ -5,51 +5,64 @@
 
 package org.jetbrains.kotlin.android.parcel.ir
 
-import kotlinx.android.parcel.TypeParceler
+import org.jetbrains.kotlin.android.parcel.ANDROID_PARCELABLE_CLASS_FQNAME
 import org.jetbrains.kotlin.android.parcel.PARCELER_FQNAME
-import org.jetbrains.kotlin.android.parcel.PARCELIZE_CLASS_FQNAME
+import org.jetbrains.kotlin.android.parcel.ParcelableAnnotationChecker.Companion.TYPE_PARCELER_FQNAME
 import org.jetbrains.kotlin.android.parcel.serializers.ParcelableExtensionBase
-import org.jetbrains.kotlin.android.parcel.serializers.TypeParcelerMapping
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
-import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.*
 import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrField
+import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class ParcelableIrTransformer(private val context: CommonBackendContext, private val androidSymbols: AndroidSymbols) :
-    ParcelableExtensionBase, IrElementTransformerVoidWithContext() {
+    ParcelableExtensionBase, IrElementVisitorVoid {
     private val serializerFactory = IrParcelSerializerFactory(context.irBuiltIns, androidSymbols)
 
-    // TODO: The CREATOR field and writeToParcel functions have to be lazily generated so that we can call them on
-    //       other types in the current module.
-    override fun visitClassNew(declaration: IrClass): IrStatement {
-        declaration.transformChildrenVoid()
+    private val deferredOperations = mutableListOf<() -> Unit>()
+    private fun defer(block: () -> Unit) = deferredOperations.add(block)
+
+    fun transform(moduleFragment: IrModuleFragment) {
+        moduleFragment.accept(this, null)
+        deferredOperations.forEach { it() }
+    }
+
+    override fun visitElement(element: IrElement) = element.acceptChildren(this, null)
+
+    override fun visitClass(declaration: IrClass) {
+        declaration.acceptChildren(this, null)
         if (!declaration.isParcelize)
-            return declaration
+            return
+
+        val parcelableSuperclasses: List<IrClassSymbol> = declaration.superTypes.map { it.classOrNull!! }.filter { superClass ->
+            superClass.owner.isSubclassOfFqName(ANDROID_PARCELABLE_CLASS_FQNAME.asString())
+        }
 
         val parcelableProperties = declaration.parcelableProperties
 
         // If the companion extends Parceler, it can override parts of the generated implementation.
         val parcelerObject = declaration.companionObject()?.safeAs<IrClass>()?.takeIf {
             it.isSubclassOfFqName(PARCELER_FQNAME.asString())
-        }?.let(::IrParcelerObject)
+        }
 
         if (declaration.descriptor.hasSyntheticDescribeContents()) {
             declaration.addFunction("describeContents", context.irBuiltIns.intType, modality = Modality.OPEN).apply {
+                overriddenSymbols = parcelableSuperclasses.mapNotNull { it.getSimpleFunction(name.asString()) }
                 val flags = if (parcelableProperties.any { it.field.type.containsFileDescriptors }) 1 else 0
                 body = context.createIrBuilder(symbol).run {
                     irExprBody(irInt(flags))
@@ -59,28 +72,33 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
 
         if (declaration.descriptor.hasSyntheticWriteToParcel()) {
             declaration.addFunction("writeToParcel", context.irBuiltIns.unitType, modality = Modality.OPEN).apply {
+                overriddenSymbols = parcelableSuperclasses.mapNotNull { it.getSimpleFunction(name.asString()) }
                 val receiverParameter = dispatchReceiverParameter!!
                 val parcelParameter = addValueParameter("out", androidSymbols.androidOsParcel.defaultType)
                 val flagsParameter = addValueParameter("flags", context.irBuiltIns.intType)
 
-                body = androidSymbols.createBuilder(symbol).run {
-                    irBlockBody {
-                        when {
-                            parcelerObject != null ->
-                                +parcelerWrite(parcelerObject, parcelParameter, flagsParameter, irGet(receiverParameter))
+                // We need to defer the construction of the writer, since it may refer to the [writeToParcel] methods in other
+                // @Parcelize classes in the current module, which might not be constructed yet at this point.
+                defer {
+                    body = androidSymbols.createBuilder(symbol).run {
+                        irBlockBody {
+                            when {
+                                parcelerObject != null ->
+                                    +parcelerWrite(parcelerObject, parcelParameter, flagsParameter, irGet(receiverParameter))
 
-                            parcelableProperties.isNotEmpty() ->
-                                for (property in parcelableProperties) {
-                                    +writeParcelWith(
-                                        property.parceler,
-                                        parcelParameter,
-                                        flagsParameter,
-                                        irGetField(irGet(receiverParameter), property.field)
-                                    )
-                                }
+                                parcelableProperties.isNotEmpty() ->
+                                    for (property in parcelableProperties) {
+                                        +writeParcelWith(
+                                            property.parceler,
+                                            parcelParameter,
+                                            flagsParameter,
+                                            irGetField(irGet(receiverParameter), property.field)
+                                        )
+                                    }
 
-                            else ->
-                                +writeParcelWith(declaration.classParceler, parcelParameter, flagsParameter, irGet(receiverParameter))
+                                else ->
+                                    +writeParcelWith(declaration.classParceler, parcelParameter, flagsParameter, irGet(receiverParameter))
+                            }
                         }
                     }
                 }
@@ -115,7 +133,6 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
 
                     val arrayType = context.irBuiltIns.arrayClass.typeWith(declaration.defaultType.makeNullable())
                     addFunction("newArray", arrayType).apply {
-                        // TODO: Call through parceler if implemented
                         overriddenSymbols = listOf(androidSymbols.androidOsParcelableCreator.getSimpleFunction(name.asString())!!)
                         val sizeParameter = addValueParameter("size", context.irBuiltIns.intType)
                         body = context.createIrBuilder(symbol).run {
@@ -132,23 +149,28 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
                     addFunction("createFromParcel", declaration.defaultType).apply {
                         overriddenSymbols = listOf(androidSymbols.androidOsParcelableCreator.getSimpleFunction(name.asString())!!)
                         val parcelParameter = addValueParameter("parcel", androidSymbols.androidOsParcel.defaultType)
-                        body = androidSymbols.createBuilder(symbol).run {
-                            irExprBody(
-                                when {
-                                    parcelerObject != null ->
-                                        parcelerCreate(parcelerObject, parcelParameter)
 
-                                    parcelableProperties.isNotEmpty() ->
-                                        irCall(declaration.primaryConstructor!!).apply {
-                                            for ((index, property) in parcelableProperties.withIndex()) {
-                                                putValueArgument(index, readParcelWith(property.parceler, parcelParameter))
+                        // We need to defer the construction of the create method, since it may refer to the [Parcelable.Creator]
+                        // instances in other @Parcelize classes in the current module, which may not exist yet.
+                        defer {
+                            body = androidSymbols.createBuilder(symbol).run {
+                                irExprBody(
+                                    when {
+                                        parcelerObject != null ->
+                                            parcelerCreate(parcelerObject, parcelParameter)
+
+                                        parcelableProperties.isNotEmpty() ->
+                                            irCall(declaration.primaryConstructor!!).apply {
+                                                for ((index, property) in parcelableProperties.withIndex()) {
+                                                    putValueArgument(index, readParcelWith(property.parceler, parcelParameter))
+                                                }
                                             }
-                                        }
 
-                                    else ->
-                                        readParcelWith(declaration.classParceler, parcelParameter)
-                                }
-                            )
+                                        else ->
+                                            readParcelWith(declaration.classParceler, parcelParameter)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -161,8 +183,6 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
                 }
             }
         }
-
-        return declaration
     }
 
     private data class ParcelableProperty(val field: IrField, val parceler: IrParcelSerializer)
@@ -189,23 +209,16 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
             }
         }
 
-    private val IrClass.isParcelize: Boolean
-        get() = kind in ParcelableExtensionBase.ALLOWED_CLASS_KINDS && hasAnnotation(PARCELIZE_CLASS_FQNAME)
-
     private val IrType.containsFileDescriptors: Boolean
-        get() =
-            erasedUpperBound.fqNameWhenAvailable == ParcelableExtensionBase.FILE_DESCRIPTOR_FQNAME ||
-                    // This is a heuristic which makes sense for container types.
-                    (this as? IrSimpleType)?.arguments?.any { argument ->
-                        argument.typeOrNull?.containsFileDescriptors == true
-                    } == true
+        get() = erasedUpperBound.fqNameWhenAvailable == ParcelableExtensionBase.FILE_DESCRIPTOR_FQNAME ||
+                // This is a heuristic which makes sense for container types.
+                (this as? IrSimpleType)?.arguments?.any { argument ->
+                    argument.typeOrNull?.containsFileDescriptors == true
+                } == true
 
     private fun IrAnnotationContainer.getParcelerScope(parent: ParcelerScope? = null): ParcelerScope? {
-        // TODO: Move to constant
-        val typeParcelerFqName = FqName(TypeParceler::class.java.name)
-
         val typeParcelerAnnotations = annotations.filterTo(mutableListOf()) {
-            it.symbol.owner.constructedClass.fqNameWhenAvailable == typeParcelerFqName
+            it.symbol.owner.constructedClass.fqNameWhenAvailable == TYPE_PARCELER_FQNAME
         }
 
         if (typeParcelerAnnotations.isEmpty())
@@ -215,8 +228,7 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
 
         for (anno in typeParcelerAnnotations) {
             val (mappedType, parcelerType) = (anno.type as IrSimpleType).arguments.map { it.typeOrNull!! }
-            val parcelerClass = parcelerType.getClass()!!
-            scope.add(mappedType, IrParcelerObject(parcelerClass))
+            scope.add(mappedType, parcelerType.getClass()!!)
         }
 
         return scope
