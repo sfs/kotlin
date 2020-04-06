@@ -58,30 +58,14 @@ public final class Test : java/lang/Object {
           ALOAD (6)
           INVOKEINTERFACE (java/util/Iterator, hasNext, ()Z)
           IFEQ (L1)
+          ALOAD (1)
           ALOAD (6)
           INVOKEINTERFACE (java/util/Iterator, next, ()Ljava/lang/Object;)
-          ASTORE (7)
-          ALOAD (1)
-          ALOAD (7)
           CHECKCAST
-          INVOKEVIRTUAL (java/util/ArrayList, size, ()I)
-          INVOKEVIRTUAL (android/os/Parcel, writeInt, (I)V)
-          ALOAD (7)
-          CHECKCAST
-          INVOKEVIRTUAL (java/util/ArrayList, iterator, ()Ljava/util/Iterator;)
-          ASTORE (8)
-        LABEL (L4)
-          ALOAD (8)
-          INVOKEINTERFACE (java/util/Iterator, hasNext, ()Z)
-          IFEQ (L3)
-          ALOAD (1)
-          ALOAD (8)
-          INVOKEINTERFACE (java/util/Iterator, next, ()Ljava/lang/Object;)
-          CHECKCAST
-          INVOKEVIRTUAL (android/os/Parcel, writeString, (Ljava/lang/String;)V)
-          GOTO (L4)
+          INVOKEVIRTUAL (android/os/Parcel, writeStringList, (Ljava/util/List;)V)
+          GOTO (L3)
         LABEL (L2)
           RETURN
-        LABEL (L5)
+        LABEL (L4)
     }
 }

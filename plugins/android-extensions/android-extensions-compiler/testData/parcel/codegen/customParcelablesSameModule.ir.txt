@@ -116,8 +116,7 @@ public final class test/Foo$Creator : java/lang/Object, android/os/Parcelable$Cr
           POP
           GETSTATIC (CREATOR, Lk/KotlinParcelable$Creator;)
           ALOAD (1)
-          INVOKEVIRTUAL (k/KotlinParcelable$Creator, createFromParcel, (Landroid/os/Parcel;)Ljava/lang/Object;)
-          CHECKCAST
+          INVOKEVIRTUAL (k/KotlinParcelable$Creator, createFromParcel, (Landroid/os/Parcel;)Lk/KotlinParcelable;)
           INVOKESPECIAL (test/Foo, <init>, (Lk/KotlinParcelable;)V)
           ARETURN
         LABEL (L1)
