@@ -37,7 +37,6 @@ dependencies {
 
     robolectricClasspath("org.robolectric:robolectric:4.0")
     robolectricClasspath("org.robolectric:android-all:4.4_r1-robolectric-1")
-//    robolectricClasspath("androidx.test:core:1.3.0-alpha4")
     robolectricClasspath(project(":kotlin-android-extensions-runtime")) { isTransitive = false }
 
     embedded(project(":kotlin-android-extensions-runtime")) { isTransitive = false }
