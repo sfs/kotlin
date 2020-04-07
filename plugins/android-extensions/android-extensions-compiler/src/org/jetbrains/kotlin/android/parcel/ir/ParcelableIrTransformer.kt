@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.android.parcel.ir
 
 import org.jetbrains.kotlin.android.parcel.ANDROID_PARCELABLE_CLASS_FQNAME
 import org.jetbrains.kotlin.android.parcel.PARCELER_FQNAME
-import org.jetbrains.kotlin.android.parcel.ParcelableAnnotationChecker.Companion.TYPE_PARCELER_FQNAME
 import org.jetbrains.kotlin.android.parcel.serializers.ParcelableExtensionBase
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
@@ -19,14 +18,14 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.*
-import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
@@ -49,10 +48,6 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
         if (!declaration.isParcelize)
             return
 
-        val parcelableSuperclasses: List<IrClassSymbol> = declaration.superTypes.map { it.classOrNull!! }.filter { superClass ->
-            superClass.owner.isSubclassOfFqName(ANDROID_PARCELABLE_CLASS_FQNAME.asString())
-        }
-
         val parcelableProperties = declaration.parcelableProperties
 
         // If the companion extends Parceler, it can override parts of the generated implementation.
@@ -61,8 +56,12 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
         }
 
         if (declaration.descriptor.hasSyntheticDescribeContents()) {
-            declaration.addFunction("describeContents", context.irBuiltIns.intType, modality = Modality.OPEN).apply {
-                overriddenSymbols = parcelableSuperclasses.mapNotNull { it.getSimpleFunction(name.asString()) }
+            declaration.addOverride(
+                ANDROID_PARCELABLE_CLASS_FQNAME,
+                "describeContents",
+                context.irBuiltIns.intType,
+                modality = Modality.OPEN
+            ).apply {
                 val flags = if (parcelableProperties.any { it.field.type.containsFileDescriptors }) 1 else 0
                 body = context.createIrBuilder(symbol).run {
                     irExprBody(irInt(flags))
@@ -71,8 +70,12 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
         }
 
         if (declaration.descriptor.hasSyntheticWriteToParcel()) {
-            declaration.addFunction("writeToParcel", context.irBuiltIns.unitType, modality = Modality.OPEN).apply {
-                overriddenSymbols = parcelableSuperclasses.mapNotNull { it.getSimpleFunction(name.asString()) }
+            declaration.addOverride(
+                ANDROID_PARCELABLE_CLASS_FQNAME,
+                "writeToParcel",
+                context.irBuiltIns.unitType,
+                modality = Modality.OPEN
+            ).apply {
                 val receiverParameter = dispatchReceiverParameter!!
                 val parcelParameter = addValueParameter("out", androidSymbols.androidOsParcel.defaultType)
                 val flagsParameter = addValueParameter("flags", context.irBuiltIns.intType)
@@ -97,7 +100,12 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
                                     }
 
                                 else ->
-                                    +writeParcelWith(declaration.classParceler, parcelParameter, flagsParameter, irGet(receiverParameter))
+                                    +writeParcelWith(
+                                        declaration.classParceler,
+                                        parcelParameter,
+                                        flagsParameter,
+                                        irGet(receiverParameter)
+                                    )
                             }
                         }
                     }
@@ -185,11 +193,26 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
         }
     }
 
+    private fun IrClass.addOverride(
+        baseFqName: FqName,
+        name: String,
+        returnType: IrType,
+        modality: Modality = Modality.FINAL
+    ): IrSimpleFunction = addFunction(name, returnType, modality).apply {
+        overriddenSymbols = superTypes.mapNotNull { superType ->
+            superType.classOrNull?.owner?.takeIf { superClass -> superClass.isSubclassOfFqName(baseFqName.asString()) }
+        }.flatMap { superClass ->
+            superClass.functions.filter { function ->
+                function.name.asString() == name && function.overridesFunctionIn(baseFqName)
+            }.map { it.symbol }.toList()
+        }
+    }
+
     private data class ParcelableProperty(val field: IrField, val parceler: IrParcelSerializer)
 
     private val IrClass.classParceler: IrParcelSerializer
         get() = if (kind == ClassKind.CLASS) {
-            NoParameterClassSerializer(this)
+            IrNoParameterClassParcelSerializer(this)
         } else {
             serializerFactory.get(defaultType, parcelizeType = defaultType, strict = true, toplevel = true, scope = getParcelerScope())
         }
@@ -209,28 +232,10 @@ class ParcelableIrTransformer(private val context: CommonBackendContext, private
             }
         }
 
+    // *Heuristic* to determine if a Parcelable contains file descriptors.
     private val IrType.containsFileDescriptors: Boolean
         get() = erasedUpperBound.fqNameWhenAvailable == ParcelableExtensionBase.FILE_DESCRIPTOR_FQNAME ||
-                // This is a heuristic which makes sense for container types.
                 (this as? IrSimpleType)?.arguments?.any { argument ->
                     argument.typeOrNull?.containsFileDescriptors == true
                 } == true
-
-    private fun IrAnnotationContainer.getParcelerScope(parent: ParcelerScope? = null): ParcelerScope? {
-        val typeParcelerAnnotations = annotations.filterTo(mutableListOf()) {
-            it.symbol.owner.constructedClass.fqNameWhenAvailable == TYPE_PARCELER_FQNAME
-        }
-
-        if (typeParcelerAnnotations.isEmpty())
-            return parent
-
-        val scope = ParcelerScope(parent)
-
-        for (anno in typeParcelerAnnotations) {
-            val (mappedType, parcelerType) = (anno.type as IrSimpleType).arguments.map { it.typeOrNull!! }
-            scope.add(mappedType, parcelerType.getClass()!!)
-        }
-
-        return scope
-    }
 }

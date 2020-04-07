@@ -28,14 +28,17 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
+// true if the class should be processed by the parcelize plugin
 val IrClass.isParcelize: Boolean
     get() = kind in ParcelableExtensionBase.ALLOWED_CLASS_KINDS && hasAnnotation(PARCELIZE_CLASS_FQNAME)
 
+// Finds the getter for a pre-existing CREATOR field on the class companion, which is used for manual Parcelable implementations in Kotlin.
 val IrClass.creatorGetter: IrSimpleFunctionSymbol?
     get() = companionObject()?.safeAs<IrClass>()?.getPropertyGetter(CREATOR_NAME.asString())?.takeIf {
         it.owner.correspondingPropertySymbol?.owner?.backingField?.hasAnnotation(FqName("kotlin.jvm.JvmField")) == true
     }
 
+// true if the class has a static CREATOR field
 val IrClass.hasCreatorField: Boolean
     get() = fields.any { field -> field.name == CREATOR_NAME } || creatorGetter != null
 
@@ -102,7 +105,7 @@ private fun IrClass.parcelerSymbolByName(name: String): IrSimpleFunctionSymbol? 
         !function.isFakeOverride && function.name.asString() == name && function.overridesFunctionIn(PARCELER_FQNAME)
     }?.symbol
 
-private fun IrSimpleFunction.overridesFunctionIn(fqName: FqName): Boolean =
+fun IrSimpleFunction.overridesFunctionIn(fqName: FqName): Boolean =
     parentClassOrNull?.fqNameWhenAvailable == fqName || allOverridden().any { it.parentClassOrNull?.fqNameWhenAvailable == fqName }
 
 private fun IrBuilderWithScope.kClassReference(classType: IrType) =
@@ -115,6 +118,7 @@ private fun AndroidIrBuilder.kClassToJavaClass(kClassReference: IrExpression) =
         extensionReceiver = kClassReference
     }
 
+// Produce a static reference to the java class of the given type.
 fun AndroidIrBuilder.javaClassReference(classType: IrType) =
     kClassToJavaClass(kClassReference(classType))
 
@@ -155,3 +159,9 @@ private fun IrClass.getSimpleFunction(name: String): IrSimpleFunctionSymbol? =
 fun IrClass.getPropertyGetter(name: String): IrSimpleFunctionSymbol? =
     declarations.filterIsInstance<IrProperty>().firstOrNull { it.name.asString() == name && it.getter != null }?.getter?.symbol
         ?: getSimpleFunction("<get-$name>")
+
+fun IrClass.getMethodWithoutArguments(name: String): IrSimpleFunction =
+    functions.first { function ->
+        function.name.asString() == name && function.dispatchReceiverParameter != null
+                && function.extensionReceiverParameter == null && function.valueParameters.isEmpty()
+    }
