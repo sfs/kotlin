@@ -439,6 +439,11 @@ open class ProtoCompareGenerated(
             if (!checkStringEquals(old.getExtension(JvmProtoBuf.lambdaClassOriginName), new.getExtension(JvmProtoBuf.lambdaClassOriginName))) return false
         }
 
+        if (old.hasExtension(JvmProtoBuf.jvmFunctionFlags) != new.hasExtension(JvmProtoBuf.jvmFunctionFlags)) return false
+        if (old.hasExtension(JvmProtoBuf.jvmFunctionFlags)) {
+            if (old.getExtension(JvmProtoBuf.jvmFunctionFlags) != new.getExtension(JvmProtoBuf.jvmFunctionFlags)) return false
+        }
+
         if (old.getExtensionCount(JsProtoBuf.functionAnnotation) != new.getExtensionCount(JsProtoBuf.functionAnnotation)) {
             return false
         }
@@ -1826,6 +1831,10 @@ fun ProtoBuf.Function.hashCode(stringIndexes: (Int) -> Int, fqNameIndexes: (Int)
 
     if (hasExtension(JvmProtoBuf.lambdaClassOriginName)) {
         hashCode = 31 * hashCode + stringIndexes(getExtension(JvmProtoBuf.lambdaClassOriginName))
+    }
+
+    if (hasExtension(JvmProtoBuf.jvmFunctionFlags)) {
+        hashCode = 31 * hashCode + getExtension(JvmProtoBuf.jvmFunctionFlags)
     }
 
     for(i in 0..getExtensionCount(JsProtoBuf.functionAnnotation) - 1) {

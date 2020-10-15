@@ -10,6 +10,7 @@ public final class JvmProtoBuf {
     registry.add(org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf.constructorSignature);
     registry.add(org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf.methodSignature);
     registry.add(org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf.lambdaClassOriginName);
+    registry.add(org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf.jvmFunctionFlags);
     registry.add(org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf.propertySignature);
     registry.add(org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf.flags);
     registry.add(org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf.typeAnnotation);
@@ -3844,6 +3845,26 @@ public final class JvmProtoBuf {
         101,
         org.jetbrains.kotlin.protobuf.WireFormat.FieldType.INT32,
         java.lang.Integer.class);
+  public static final int JVM_FUNCTION_FLAGS_FIELD_NUMBER = 102;
+  /**
+   * <code>extend .org.jetbrains.kotlin.metadata.Function { ... }</code>
+   *
+   * <pre>
+   * first bit: is the function used as a lambda in the body of an inline function and part of the public abi, 1 - yes, 0 - no
+   * </pre>
+   */
+  public static final
+    org.jetbrains.kotlin.protobuf.GeneratedMessageLite.GeneratedExtension<
+      org.jetbrains.kotlin.metadata.ProtoBuf.Function,
+      java.lang.Integer> jvmFunctionFlags = org.jetbrains.kotlin.protobuf.GeneratedMessageLite
+          .newSingularGeneratedExtension(
+        org.jetbrains.kotlin.metadata.ProtoBuf.Function.getDefaultInstance(),
+        0,
+        null,
+        null,
+        102,
+        org.jetbrains.kotlin.protobuf.WireFormat.FieldType.INT32,
+        java.lang.Integer.class);
   public static final int PROPERTY_SIGNATURE_FIELD_NUMBER = 100;
   /**
    * <code>extend .org.jetbrains.kotlin.metadata.Property { ... }</code>
@@ -3993,6 +4014,7 @@ public final class JvmProtoBuf {
    * <pre>
    * first bit: isFunctionBodyInInterface: 0 if actual body generated in DefaultImpl, 1 - otherwise (in interface default method)
    * second bit: is all-compatibility mode or not, 1 - yes, 0 - no
+   * third bit: is the class used in the body of an inline function and part of the public abi, 1 - yes, 0 - no
    * </pre>
    */
   public static final

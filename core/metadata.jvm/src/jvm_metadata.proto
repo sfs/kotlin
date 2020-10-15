@@ -98,6 +98,9 @@ extend Function {
   // For lambdas from bodies of inline functions copied to the use site, the JVM internal name of the original
   // lambda class this class is copied from
   optional int32 lambda_class_origin_name = 101 [(string_id_in_table) = true];
+
+  // first bit: is the function used as a lambda in the body of an inline function and part of the public abi, 1 - yes, 0 - no
+  optional int32 jvm_function_flags = 102;
 }
 
 extend Property {
@@ -131,6 +134,7 @@ extend Class {
 
   // first bit: isFunctionBodyInInterface: 0 if actual body generated in DefaultImpl, 1 - otherwise (in interface default method)
   // second bit: is all-compatibility mode or not, 1 - yes, 0 - no
+  // third bit: is the class used in the body of an inline function and part of the public abi, 1 - yes, 0 - no
   optional int32 jvm_class_flags = 104 [default = 0];
 }
 

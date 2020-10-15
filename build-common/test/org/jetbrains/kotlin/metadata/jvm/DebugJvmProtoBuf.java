@@ -10,6 +10,7 @@ public final class DebugJvmProtoBuf {
     registry.add(org.jetbrains.kotlin.metadata.jvm.DebugJvmProtoBuf.constructorSignature);
     registry.add(org.jetbrains.kotlin.metadata.jvm.DebugJvmProtoBuf.methodSignature);
     registry.add(org.jetbrains.kotlin.metadata.jvm.DebugJvmProtoBuf.lambdaClassOriginName);
+    registry.add(org.jetbrains.kotlin.metadata.jvm.DebugJvmProtoBuf.jvmFunctionFlags);
     registry.add(org.jetbrains.kotlin.metadata.jvm.DebugJvmProtoBuf.propertySignature);
     registry.add(org.jetbrains.kotlin.metadata.jvm.DebugJvmProtoBuf.flags);
     registry.add(org.jetbrains.kotlin.metadata.jvm.DebugJvmProtoBuf.typeAnnotation);
@@ -4549,6 +4550,21 @@ public final class DebugJvmProtoBuf {
           .newFileScopedGeneratedExtension(
         java.lang.Integer.class,
         null);
+  public static final int JVM_FUNCTION_FLAGS_FIELD_NUMBER = 102;
+  /**
+   * <code>extend .org.jetbrains.kotlin.metadata.Function { ... }</code>
+   *
+   * <pre>
+   * first bit: is the function used as a lambda in the body of an inline function and part of the public abi, 1 - yes, 0 - no
+   * </pre>
+   */
+  public static final
+    org.jetbrains.kotlin.protobuf.GeneratedMessage.GeneratedExtension<
+      org.jetbrains.kotlin.metadata.DebugProtoBuf.Function,
+      java.lang.Integer> jvmFunctionFlags = org.jetbrains.kotlin.protobuf.GeneratedMessage
+          .newFileScopedGeneratedExtension(
+        java.lang.Integer.class,
+        null);
   public static final int PROPERTY_SIGNATURE_FIELD_NUMBER = 100;
   /**
    * <code>extend .org.jetbrains.kotlin.metadata.Property { ... }</code>
@@ -4658,6 +4674,7 @@ public final class DebugJvmProtoBuf {
    * <pre>
    * first bit: isFunctionBodyInInterface: 0 if actual body generated in DefaultImpl, 1 - otherwise (in interface default method)
    * second bit: is all-compatibility mode or not, 1 - yes, 0 - no
+   * third bit: is the class used in the body of an inline function and part of the public abi, 1 - yes, 0 - no
    * </pre>
    */
   public static final
@@ -4756,32 +4773,34 @@ public final class DebugJvmProtoBuf {
       "ta.Function\030d \001(\01325.org.jetbrains.kotlin" +
       ".metadata.jvm.JvmMethodSignature:O\n\030lamb" +
       "da_class_origin_name\022\'.org.jetbrains.kot" +
-      "lin.metadata.Function\030e \001(\005B\004\230\265\030\001:|\n\022pro" +
-      "perty_signature\022\'.org.jetbrains.kotlin.m" +
-      "etadata.Property\030d \001(\01327.org.jetbrains.k" +
-      "otlin.metadata.jvm.JvmPropertySignature:" +
-      "9\n\005flags\022\'.org.jetbrains.kotlin.metadata" +
-      ".Property\030e \001(\005:\0010:g\n\017type_annotation\022#." +
-      "org.jetbrains.kotlin.metadata.Type\030d \003(\013",
-      "2).org.jetbrains.kotlin.metadata.Annotat" +
-      "ion:3\n\006is_raw\022#.org.jetbrains.kotlin.met" +
-      "adata.Type\030e \001(\010:z\n\031type_parameter_annot" +
-      "ation\022,.org.jetbrains.kotlin.metadata.Ty" +
-      "peParameter\030d \003(\0132).org.jetbrains.kotlin" +
-      ".metadata.Annotation:E\n\021class_module_nam" +
-      "e\022$.org.jetbrains.kotlin.metadata.Class\030" +
-      "e \001(\005B\004\230\265\030\001:k\n\024class_local_variable\022$.or" +
-      "g.jetbrains.kotlin.metadata.Class\030f \003(\0132" +
-      "\'.org.jetbrains.kotlin.metadata.Property",
-      ":P\n\034anonymous_object_origin_name\022$.org.j" +
-      "etbrains.kotlin.metadata.Class\030g \001(\005B\004\230\265" +
-      "\030\001:@\n\017jvm_class_flags\022$.org.jetbrains.ko" +
-      "tlin.metadata.Class\030h \001(\005:\0010:I\n\023package_" +
-      "module_name\022&.org.jetbrains.kotlin.metad" +
-      "ata.Package\030e \001(\005B\004\230\265\030\001:o\n\026package_local" +
-      "_variable\022&.org.jetbrains.kotlin.metadat" +
-      "a.Package\030f \003(\0132\'.org.jetbrains.kotlin.m" +
-      "etadata.PropertyB\022B\020DebugJvmProtoBuf"
+      "lin.metadata.Function\030e \001(\005B\004\230\265\030\001:C\n\022jvm" +
+      "_function_flags\022\'.org.jetbrains.kotlin.m" +
+      "etadata.Function\030f \001(\005:|\n\022property_signa" +
+      "ture\022\'.org.jetbrains.kotlin.metadata.Pro" +
+      "perty\030d \001(\01327.org.jetbrains.kotlin.metad" +
+      "ata.jvm.JvmPropertySignature:9\n\005flags\022\'." +
+      "org.jetbrains.kotlin.metadata.Property\030e",
+      " \001(\005:\0010:g\n\017type_annotation\022#.org.jetbrai" +
+      "ns.kotlin.metadata.Type\030d \003(\0132).org.jetb" +
+      "rains.kotlin.metadata.Annotation:3\n\006is_r" +
+      "aw\022#.org.jetbrains.kotlin.metadata.Type\030" +
+      "e \001(\010:z\n\031type_parameter_annotation\022,.org" +
+      ".jetbrains.kotlin.metadata.TypeParameter" +
+      "\030d \003(\0132).org.jetbrains.kotlin.metadata.A" +
+      "nnotation:E\n\021class_module_name\022$.org.jet" +
+      "brains.kotlin.metadata.Class\030e \001(\005B\004\230\265\030\001" +
+      ":k\n\024class_local_variable\022$.org.jetbrains",
+      ".kotlin.metadata.Class\030f \003(\0132\'.org.jetbr" +
+      "ains.kotlin.metadata.Property:P\n\034anonymo" +
+      "us_object_origin_name\022$.org.jetbrains.ko" +
+      "tlin.metadata.Class\030g \001(\005B\004\230\265\030\001:@\n\017jvm_c" +
+      "lass_flags\022$.org.jetbrains.kotlin.metada" +
+      "ta.Class\030h \001(\005:\0010:I\n\023package_module_name" +
+      "\022&.org.jetbrains.kotlin.metadata.Package" +
+      "\030e \001(\005B\004\230\265\030\001:o\n\026package_local_variable\022&" +
+      ".org.jetbrains.kotlin.metadata.Package\030f" +
+      " \003(\0132\'.org.jetbrains.kotlin.metadata.Pro",
+      "pertyB\022B\020DebugJvmProtoBuf"
     };
     org.jetbrains.kotlin.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new org.jetbrains.kotlin.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -4830,17 +4849,18 @@ public final class DebugJvmProtoBuf {
     constructorSignature.internalInit(descriptor.getExtensions().get(0));
     methodSignature.internalInit(descriptor.getExtensions().get(1));
     lambdaClassOriginName.internalInit(descriptor.getExtensions().get(2));
-    propertySignature.internalInit(descriptor.getExtensions().get(3));
-    flags.internalInit(descriptor.getExtensions().get(4));
-    typeAnnotation.internalInit(descriptor.getExtensions().get(5));
-    isRaw.internalInit(descriptor.getExtensions().get(6));
-    typeParameterAnnotation.internalInit(descriptor.getExtensions().get(7));
-    classModuleName.internalInit(descriptor.getExtensions().get(8));
-    classLocalVariable.internalInit(descriptor.getExtensions().get(9));
-    anonymousObjectOriginName.internalInit(descriptor.getExtensions().get(10));
-    jvmClassFlags.internalInit(descriptor.getExtensions().get(11));
-    packageModuleName.internalInit(descriptor.getExtensions().get(12));
-    packageLocalVariable.internalInit(descriptor.getExtensions().get(13));
+    jvmFunctionFlags.internalInit(descriptor.getExtensions().get(3));
+    propertySignature.internalInit(descriptor.getExtensions().get(4));
+    flags.internalInit(descriptor.getExtensions().get(5));
+    typeAnnotation.internalInit(descriptor.getExtensions().get(6));
+    isRaw.internalInit(descriptor.getExtensions().get(7));
+    typeParameterAnnotation.internalInit(descriptor.getExtensions().get(8));
+    classModuleName.internalInit(descriptor.getExtensions().get(9));
+    classLocalVariable.internalInit(descriptor.getExtensions().get(10));
+    anonymousObjectOriginName.internalInit(descriptor.getExtensions().get(11));
+    jvmClassFlags.internalInit(descriptor.getExtensions().get(12));
+    packageModuleName.internalInit(descriptor.getExtensions().get(13));
+    packageLocalVariable.internalInit(descriptor.getExtensions().get(14));
     org.jetbrains.kotlin.protobuf.ExtensionRegistry registry =
         org.jetbrains.kotlin.protobuf.ExtensionRegistry.newInstance();
     registry.add(org.jetbrains.kotlin.metadata.DebugExtOptionsProtoBuf.stringIdInTable);
